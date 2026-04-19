@@ -498,6 +498,13 @@ function renderTranslatorConfig(container, config) {
     : t("config.section.localSettings");
   settingsSection.append(settingsHeading);
 
+  if (provider === "local") {
+    const settingsNote = document.createElement("p");
+    settingsNote.className = "config-group-note";
+    settingsNote.textContent = t("config.section.localSettings.note");
+    settingsSection.append(settingsNote);
+  }
+
   const fieldGrid = document.createElement("div");
   fieldGrid.className = "config-field-grid";
 

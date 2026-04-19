@@ -194,6 +194,12 @@ button:disabled {
   text-transform: capitalize;
 }
 
+.config-group-note {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .config-field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
