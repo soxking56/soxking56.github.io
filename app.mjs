@@ -744,15 +744,16 @@ function renderActionState() {
   installButton.disabled = state.busy || !canInstall();
   saveConfigButton.disabled = state.busy || !canSaveConfig();
   resetConfigButton.disabled = state.busy || !hasUnsavedConfigChanges();
+  const reinstall = hasExistingInstallation();
 
   pickFolderButton.title = t("tooltip.pickFolderButton");
-  installButton.title = t("tooltip.installButton");
+  installButton.title = t(reinstall ? "tooltip.reinstallButton" : "tooltip.installButton");
   saveConfigButton.title = t("tooltip.saveConfigButton");
   resetConfigButton.title = t("tooltip.resetConfigButton");
 
   installButton.textContent = state.busyAction === "install"
-    ? t("button.installing")
-    : t("button.install");
+    ? t(reinstall ? "button.reinstalling" : "button.installing")
+    : t(reinstall ? "button.reinstall" : "button.install");
   saveConfigButton.textContent = state.busyAction === "save-config"
     ? t("button.saving")
     : t("button.saveConfig");
@@ -788,6 +789,10 @@ function hasUnsavedConfigChanges() {
       && state.configDraft
       && !configDraftsEqual(state.loadedConfigs, state.configDraft),
   );
+}
+
+function hasExistingInstallation() {
+  return Boolean(state.loadedConfigs);
 }
 
 function getSelectedProvider(config) {

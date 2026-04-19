@@ -30,6 +30,7 @@ test("createTranslator returns translated copy and interpolates placeholders", (
   const t = createTranslator("ko-KR");
 
   assert.equal(t("button.install"), "설치");
+  assert.equal(t("button.reinstall"), "재설치");
   assert.equal(
     t("log.installComplete", { count: 3, path: "js/plugins/live-translator" }),
     "설치가 완료되었습니다. 플러그인 파일 3개를 기록하고 js/plugins/live-translator를 업데이트했습니다.",

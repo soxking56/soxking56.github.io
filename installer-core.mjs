@@ -365,7 +365,7 @@ export async function installGame(rootHandle, manifest, options = {}) {
   let pluginEntryAdded = false;
 
   if (pluginsData.text.includes(LOADER_PLUGIN_NAME)) {
-    log(t("core.pluginEntryAlreadyExists", { path: inspection.pluginsFilePath }), "warning");
+    log(t("core.pluginEntryAlreadyExists", { path: inspection.pluginsFilePath }), "info");
   } else {
     log(t("core.addingPluginEntry", { path: inspection.pluginsFilePath }), "info");
 
