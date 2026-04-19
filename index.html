@@ -3,68 +3,70 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>RPG Translator Installer</title>
+    <title data-i18n="document.title">RPG Translator Installer</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="app-shell">
       <section class="panel primary-panel">
-        <p class="eyebrow">Browser installer</p>
-        <h1>RPG Maker MV/MZ Live Translator</h1>
-        <p class="intro">
+        <p class="eyebrow" data-i18n="page.eyebrow">Browser installer</p>
+        <h1 data-i18n="page.heading">RPG Maker MV/MZ Live Translator</h1>
+        <p class="intro" data-i18n="page.intro">
           Choose the game folder and install the plugin directly from the browser.
         </p>
         <div class="actions">
-          <button id="pick-folder-button" type="button">Choose Game Folder</button>
-          <button id="install-button" type="button" disabled>Install</button>
+          <button id="pick-folder-button" type="button" data-i18n="button.pickFolder" data-i18n-title="tooltip.pickFolderButton">Choose Game Folder</button>
+          <button id="install-button" type="button" disabled data-i18n="button.install" data-i18n-title="tooltip.installButton">Install</button>
         </div>
         <p id="support-note" class="support-note"></p>
       </section>
 
       <section class="panel">
-        <h2>Detected Folder</h2>
+        <h2 data-i18n="section.detectedFolder">Detected Folder</h2>
         <dl class="facts">
           <div>
-            <dt>Folder</dt>
+            <dt data-i18n="folder.fieldName">Folder</dt>
             <dd id="folder-name">Nothing selected</dd>
           </div>
           <div>
-            <dt>Status</dt>
+            <dt data-i18n="folder.fieldStatus">Status</dt>
             <dd id="folder-status">Waiting for a folder selection.</dd>
           </div>
           <div>
-            <dt>Layout</dt>
+            <dt data-i18n="folder.fieldLayout">Layout</dt>
             <dd id="folder-layout">Unknown</dd>
           </div>
           <div>
-            <dt>Plugin target</dt>
+            <dt data-i18n="folder.fieldPluginTarget">Plugin target</dt>
             <dd id="plugin-target">Unknown</dd>
           </div>
           <div>
-            <dt>plugins.js</dt>
+            <dt data-i18n="folder.fieldPluginsFile">plugins.js</dt>
             <dd id="plugins-file">Unknown</dd>
           </div>
         </dl>
         <div class="package-block">
-          <h3>Package files</h3>
+          <h3 data-i18n="package.heading">Package files</h3>
           <ul id="package-list" class="package-list">
-            <li>Nothing inspected yet.</li>
+            <li data-i18n="package.noneInspected">Nothing inspected yet.</li>
           </ul>
         </div>
         <div class="package-block">
-          <h3>Official NW.js ZIP</h3>
-          <p class="download-copy">Game not launching? Download the updated runtime here.</p>
+          <h3 data-i18n="download.heading">Official NW.js ZIP</h3>
+          <p class="download-copy" data-i18n="download.copy">Game not launching? Download the updated runtime here.</p>
           <p class="download-link">
             <a
               href="https://dl.nwjs.io/v0.110.1/nwjs-v0.110.1-win-x64.zip"
               target="_blank"
               rel="noopener noreferrer"
+              data-i18n="download.link"
+              data-i18n-title="tooltip.nwjsZipLink"
             >Official NW.js ZIP</a>
           </p>
           <ol class="manual-steps">
-            <li>Save the ZIP in the folder with <code>Game.exe</code>.</li>
-            <li>Unzip it there.</li>
-            <li>Rename <code>nwjs.exe</code> to <code>Game.exe</code>.</li>
+            <li data-i18n-html="download.step1">Save the ZIP in the folder with <code>Game.exe</code>.</li>
+            <li data-i18n="download.step2">Unzip it there.</li>
+            <li data-i18n-html="download.step3">Rename <code>nwjs.exe</code> to <code>Game.exe</code>.</li>
           </ol>
         </div>
       </section>
@@ -72,38 +74,38 @@
       <section class="panel">
         <div class="section-heading">
           <div>
-            <h2>Configuration</h2>
+            <h2 data-i18n="section.configuration">Configuration</h2>
             <p id="config-status" class="section-note">
               Select a game folder to load installed settings.json and translator.json.
             </p>
           </div>
           <div class="config-actions">
-            <button id="save-config-button" type="button" disabled>Save Config</button>
-            <button id="reset-config-button" type="button" disabled>Reset Config</button>
+            <button id="save-config-button" type="button" disabled data-i18n="button.saveConfig" data-i18n-title="tooltip.saveConfigButton">Save Config</button>
+            <button id="reset-config-button" type="button" disabled data-i18n="button.resetConfig" data-i18n-title="tooltip.resetConfigButton">Reset Config</button>
           </div>
         </div>
 
         <section class="config-file-section" aria-labelledby="settings-config-heading">
           <h3 id="settings-config-heading">settings.json</h3>
-          <p class="config-file-note">Plugin logging, redraw, translation, and cache settings.</p>
+          <p class="config-file-note" data-i18n="config.file.settings.note">Plugin logging, redraw, translation, and cache settings.</p>
           <div id="settings-config-fields" class="config-fields">
-            <p class="config-empty">Installed configuration will appear here after the plugin is present in the selected folder.</p>
+            <p class="config-empty" data-i18n="config.empty">Installed configuration will appear here after the plugin is present in the selected folder.</p>
           </div>
         </section>
 
         <section class="config-file-section" aria-labelledby="translator-config-heading">
           <h3 id="translator-config-heading">translator.json</h3>
-          <p class="config-file-note">Provider, model, prompt, and DeepL connection settings.</p>
+          <p class="config-file-note" data-i18n="config.file.translator.note">Provider, model, prompt, and DeepL connection settings.</p>
           <div id="translator-config-fields" class="config-fields">
-            <p class="config-empty">Installed configuration will appear here after the plugin is present in the selected folder.</p>
+            <p class="config-empty" data-i18n="config.empty">Installed configuration will appear here after the plugin is present in the selected folder.</p>
           </div>
         </section>
       </section>
 
       <section class="panel">
-        <h2>Activity</h2>
+        <h2 data-i18n="section.activity">Activity</h2>
         <ol id="log-list" class="log-list">
-          <li class="log-entry info">Waiting to load the installer bundle.</li>
+          <li class="log-entry info" data-i18n="log.waitingForBundle">Waiting to load the installer bundle.</li>
         </ol>
       </section>
     </main>

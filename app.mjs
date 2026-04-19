@@ -12,42 +12,105 @@ import {
   getValueAtPath,
   setValueAtPath,
 } from "./config-editor.mjs";
+import {
+  createTranslator,
+  detectPreferredLocale,
+} from "./i18n.mjs";
 
 const SETTINGS_FIELD = {
   id: "translation.disableCjkFilter",
   path: ["translation", "disableCjkFilter"],
   inputKind: "checkbox",
   label: "disableCjkFilter",
-  description: "When turned on, only translates ingame text in Chinese, Japanese, or Korean",
+  descriptionKey: "field.translation.disableCjkFilter.description",
+  tooltipKey: "field.translation.disableCjkFilter.tooltip",
 };
 
 const LOCAL_TRANSLATOR_FIELDS = [
-  { id: "settings.local.address", path: ["settings", "local", "address"], inputKind: "text", label: "address" },
-  { id: "settings.local.port", path: ["settings", "local", "port"], inputKind: "number", label: "port" },
-  { id: "settings.local.model", path: ["settings", "local", "model"], inputKind: "text", label: "model" },
+  {
+    id: "settings.local.address",
+    path: ["settings", "local", "address"],
+    inputKind: "text",
+    label: "address",
+    tooltipKey: "field.local.address.tooltip",
+  },
+  {
+    id: "settings.local.port",
+    path: ["settings", "local", "port"],
+    inputKind: "number",
+    label: "port",
+    tooltipKey: "field.local.port.tooltip",
+  },
+  {
+    id: "settings.local.model",
+    path: ["settings", "local", "model"],
+    inputKind: "text",
+    label: "model",
+    tooltipKey: "field.local.model.tooltip",
+  },
   {
     id: "settings.local.system_prompt",
     path: ["settings", "local", "system_prompt"],
     inputKind: "textarea",
     label: "system_prompt",
+    tooltipKey: "field.local.systemPrompt.tooltip",
   },
-  { id: "settings.local.temperature", path: ["settings", "local", "temperature"], inputKind: "number", label: "temperature" },
-  { id: "settings.local.top_p", path: ["settings", "local", "top_p"], inputKind: "number", label: "top_p" },
-  { id: "settings.local.top_k", path: ["settings", "local", "top_k"], inputKind: "number", label: "top_k" },
-  { id: "settings.local.min_p", path: ["settings", "local", "min_p"], inputKind: "number", label: "min_p" },
+  {
+    id: "settings.local.temperature",
+    path: ["settings", "local", "temperature"],
+    inputKind: "number",
+    label: "temperature",
+    tooltipKey: "field.local.temperature.tooltip",
+  },
+  {
+    id: "settings.local.top_p",
+    path: ["settings", "local", "top_p"],
+    inputKind: "number",
+    label: "top_p",
+    tooltipKey: "field.local.topP.tooltip",
+  },
+  {
+    id: "settings.local.top_k",
+    path: ["settings", "local", "top_k"],
+    inputKind: "number",
+    label: "top_k",
+    tooltipKey: "field.local.topK.tooltip",
+  },
+  {
+    id: "settings.local.min_p",
+    path: ["settings", "local", "min_p"],
+    inputKind: "number",
+    label: "min_p",
+    tooltipKey: "field.local.minP.tooltip",
+  },
   {
     id: "settings.local.repeat_penalty",
     path: ["settings", "local", "repeat_penalty"],
     inputKind: "number",
     label: "repeat_penalty",
+    tooltipKey: "field.local.repeatPenalty.tooltip",
   },
 ];
 
 const DEEPL_TRANSLATOR_FIELDS = [
-  { id: "settings.deepl.language", path: ["settings", "deepl", "language"], inputKind: "text", label: "language" },
-  { id: "settings.deepl.apiKey", path: ["settings", "deepl", "apiKey"], inputKind: "sensitive-text", label: "apiKey" },
+  {
+    id: "settings.deepl.language",
+    path: ["settings", "deepl", "language"],
+    inputKind: "text",
+    label: "language",
+    tooltipKey: "field.deepl.language.tooltip",
+  },
+  {
+    id: "settings.deepl.apiKey",
+    path: ["settings", "deepl", "apiKey"],
+    inputKind: "sensitive-text",
+    label: "apiKey",
+    tooltipKey: "field.deepl.apiKey.tooltip",
+  },
 ];
 const DEEPL_APIKEY_PLACEHOLDER_SUBSTRING = "__NONE__";
+const locale = detectPreferredLocale(window.navigator);
+const t = createTranslator(locale);
 
 const state = {
   manifest: null,
@@ -58,7 +121,7 @@ const state = {
   logs: [],
   loadedConfigs: null,
   configDraft: null,
-  configStatusMessage: "Select a game folder to load installed settings.json and translator.json.",
+  configStatusMessage: t("config.status.initial"),
   configErrors: new Set(),
 };
 
@@ -78,6 +141,8 @@ const settingsConfigFields = document.querySelector("#settings-config-fields");
 const translatorConfigFields = document.querySelector("#translator-config-fields");
 const logList = document.querySelector("#log-list");
 
+applyDocumentTranslations();
+
 pickFolderButton.addEventListener("click", handlePickFolder);
 installButton.addEventListener("click", handleInstall);
 saveConfigButton.addEventListener("click", handleSaveConfig);
@@ -86,21 +151,39 @@ resetConfigButton.addEventListener("click", handleResetConfig);
 render();
 initialize();
 
+function applyDocumentTranslations() {
+  document.documentElement.lang = locale;
+
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = t(element.dataset.i18n);
+  }
+
+  for (const element of document.querySelectorAll("[data-i18n-html]")) {
+    element.innerHTML = t(element.dataset.i18nHtml);
+  }
+
+  for (const element of document.querySelectorAll("[data-i18n-title]")) {
+    element.title = t(element.dataset.i18nTitle);
+  }
+}
+
 async function initialize() {
   if (!supportsInstallation()) {
-    pushLog("This browser cannot open directories for install.", "error");
+    pushLog(t("error.browserCannotInstall"), "error");
     render();
     return;
   }
 
   try {
-    state.manifest = await loadManifest(new URL("./installer-manifest.json", import.meta.url));
+    state.manifest = await loadManifest(new URL("./installer-manifest.json", import.meta.url), { t });
     pushLog(
-      `Installer bundle loaded with ${state.manifest.supportFiles.length + 1} files.`,
+      t("log.bundleLoaded", {
+        count: state.manifest.supportFiles.length + 1,
+      }),
       "info",
     );
   } catch (error) {
-    pushLog(`Failed to load the installer bundle: ${error.message}`, "error");
+    pushLog(t("error.loadBundle", { message: error.message }), "error");
   }
 
   render();
@@ -110,11 +193,11 @@ async function handlePickFolder() {
   try {
     const handle = await window.showDirectoryPicker({ mode: "readwrite" });
     state.rootHandle = handle;
-    pushLog(`Selected folder: ${handle.name}`, "info");
+    pushLog(t("log.selectedFolder", { name: handle.name }), "info");
 
-    state.inspection = await inspectGameDirectory(handle);
+    state.inspection = await inspectGameDirectory(handle, { t });
     if (state.inspection.valid) {
-      pushLog(`Detected ${state.inspection.layoutLabel}.`, "success");
+      pushLog(t("log.detectedLayout", { layout: state.inspection.layoutLabel }), "success");
     } else {
       pushLog(state.inspection.reason, "warning");
     }
@@ -122,7 +205,7 @@ async function handlePickFolder() {
     await refreshInstalledConfigSnapshot({ logOutcome: true });
   } catch (error) {
     if (error?.name !== "AbortError") {
-      pushLog(`Folder selection failed: ${error.message}`, "error");
+      pushLog(t("error.folderSelection", { message: error.message }), "error");
     }
   }
 
@@ -141,26 +224,30 @@ async function handleInstall() {
   try {
     const permissionGranted = await ensureReadWritePermission(state.rootHandle);
     if (!permissionGranted) {
-      throw new Error("Read and write permission was not granted for the selected folder.");
+      throw new Error(t("error.permissionDenied"));
     }
 
     const result = await installGame(state.rootHandle, state.manifest, {
       baseUrl: import.meta.url,
       log: pushLog,
+      t,
     });
 
     pushLog(
-      `Install complete. Wrote ${result.filesCopied} plugin files and updated ${result.supportDirectory}.`,
+      t("log.installComplete", {
+        count: result.filesCopied,
+        path: result.supportDirectory,
+      }),
       "success",
     );
     if (result.packageUpdates === 0) {
-      pushLog("No package name changes were needed.", "info");
+      pushLog(t("log.noPackageNameChanges"), "info");
     }
 
-    state.inspection = await inspectGameDirectory(state.rootHandle);
+    state.inspection = await inspectGameDirectory(state.rootHandle, { t });
     await refreshInstalledConfigSnapshot({ logOutcome: true });
   } catch (error) {
-    pushLog(`Installation failed: ${error.message}`, "error");
+    pushLog(t("error.installationFailed", { message: error.message }), "error");
   } finally {
     state.busy = false;
     state.busyAction = null;
@@ -171,7 +258,7 @@ async function handleInstall() {
 async function handleSaveConfig() {
   const validationError = getConfigValidationError();
   if (validationError) {
-    pushLog(`Saving configuration failed: ${validationError}`, "error");
+    pushLog(t("error.saveConfigFailed", { message: validationError }), "error");
     render();
     return;
   }
@@ -187,18 +274,18 @@ async function handleSaveConfig() {
   try {
     const permissionGranted = await ensureReadWritePermission(state.rootHandle);
     if (!permissionGranted) {
-      throw new Error("Read and write permission was not granted for the selected folder.");
+      throw new Error(t("error.permissionDenied"));
     }
 
-    const result = await saveInstalledConfigs(state.rootHandle, state.manifest, state.configDraft);
+    const result = await saveInstalledConfigs(state.rootHandle, state.manifest, state.configDraft, { t });
     pushLog(
-      `Saved settings.json and translator.json in ${result.supportDirectory}.`,
+      t("log.configSaved", { path: result.supportDirectory }),
       "success",
     );
 
     await refreshInstalledConfigSnapshot({ logOutcome: false });
   } catch (error) {
-    pushLog(`Saving configuration failed: ${error.message}`, "error");
+    pushLog(t("error.saveConfigFailed", { message: error.message }), "error");
   } finally {
     state.busy = false;
     state.busyAction = null;
@@ -215,7 +302,7 @@ function handleResetConfig() {
   state.configErrors = new Set();
   renderConfigEditor();
   render();
-  pushLog("Discarded unsaved configuration changes.", "info");
+  pushLog(t("log.resetConfig"), "info");
 }
 
 async function refreshInstalledConfigSnapshot(options = {}) {
@@ -223,7 +310,7 @@ async function refreshInstalledConfigSnapshot(options = {}) {
     return;
   }
 
-  const snapshot = await loadInstalledConfigs(state.rootHandle, state.manifest);
+  const snapshot = await loadInstalledConfigs(state.rootHandle, state.manifest, { t });
   applyConfigSnapshot(snapshot, {
     logWarnings: options.logWarnings ?? true,
   });
@@ -271,48 +358,48 @@ function render() {
 
 function renderSupportNote() {
   if (!window.isSecureContext) {
-    supportNote.textContent = "Directory access needs a secure context. Use HTTPS or localhost.";
+    supportNote.textContent = t("support.secureContext");
     return;
   }
 
   if (typeof window.showDirectoryPicker !== "function") {
-    supportNote.textContent = "Use a Chromium browser with the File System Access API.";
+    supportNote.textContent = t("support.fileSystemApi");
     return;
   }
 
   if (!state.manifest) {
-    supportNote.textContent = "Loading the installer bundle.";
+    supportNote.textContent = t("support.loadingBundle");
     return;
   }
 
   if (!state.rootHandle) {
-    supportNote.textContent = "Select the game folder that contains Game.exe.";
+    supportNote.textContent = t("support.selectFolder");
     return;
   }
 
-  supportNote.textContent = state.inspection?.reason ?? "Ready to inspect the selected folder.";
+  supportNote.textContent = state.inspection?.reason ?? t("support.readyToInspect");
 }
 
 function renderFolderDetails() {
-  folderName.textContent = state.rootHandle?.name ?? "Nothing selected";
-  folderStatus.textContent = state.inspection?.reason ?? "Waiting for a folder selection.";
-  folderLayout.textContent = state.inspection?.layoutLabel ?? "Unknown";
-  pluginTarget.textContent = state.inspection?.pluginsDirPath ?? "Unknown";
-  pluginsFile.textContent = state.inspection?.pluginsFilePath ?? "Unknown";
+  folderName.textContent = state.rootHandle?.name ?? t("folder.nothingSelected");
+  folderStatus.textContent = state.inspection?.reason ?? t("folder.waitingForSelection");
+  folderLayout.textContent = state.inspection?.layoutLabel ?? t("folder.unknown");
+  pluginTarget.textContent = state.inspection?.pluginsDirPath ?? t("folder.unknown");
+  pluginsFile.textContent = state.inspection?.pluginsFilePath ?? t("folder.unknown");
 
   packageList.textContent = "";
 
   const candidates = state.inspection?.packageCandidates ?? [];
   if (candidates.length === 0) {
     const item = document.createElement("li");
-    item.textContent = "Nothing inspected yet.";
+    item.textContent = t("package.noneInspected");
     packageList.append(item);
     return;
   }
 
   for (const candidate of candidates) {
     const item = document.createElement("li");
-    item.textContent = `${candidate.path}: ${candidate.exists ? "found" : "missing"}`;
+    item.textContent = `${candidate.path}: ${candidate.exists ? t("package.statusFound") : t("package.statusMissing")}`;
     packageList.append(item);
   }
 }
@@ -323,13 +410,18 @@ function renderConfigStatus() {
 
   if (state.configDraft) {
     if (validationError) {
-      message += ` Error: ${validationError}`;
+      message += ` ${t("config.status.error", { message: validationError })}`;
     } else if (state.configErrors.size > 0) {
-      message += ` Fix ${state.configErrors.size} invalid number field${state.configErrors.size === 1 ? "" : "s"} before saving.`;
+      message += ` ${t(
+        state.configErrors.size === 1
+          ? "config.status.invalidNumber.one"
+          : "config.status.invalidNumber.other",
+        { count: state.configErrors.size },
+      )}`;
     } else if (hasUnsavedConfigChanges()) {
-      message += " Unsaved changes.";
+      message += ` ${t("config.status.unsaved")}`;
     } else {
-      message += " No unsaved changes.";
+      message += ` ${t("config.status.clean")}`;
     }
   }
 
@@ -347,7 +439,7 @@ function renderSettingsConfig(container, config) {
   if (typeof config === "undefined") {
     const placeholder = document.createElement("p");
     placeholder.className = "config-empty";
-    placeholder.textContent = "Installed configuration will appear here after the plugin is present in the selected folder.";
+    placeholder.textContent = t("config.empty");
     container.append(placeholder);
     return;
   }
@@ -357,7 +449,7 @@ function renderSettingsConfig(container, config) {
 
   const heading = document.createElement("h4");
   heading.className = "config-group-title";
-  heading.textContent = "Translation";
+  heading.textContent = t("config.section.translation");
   section.append(heading);
 
   const fieldGrid = document.createElement("div");
@@ -380,7 +472,7 @@ function renderTranslatorConfig(container, config) {
   if (typeof config === "undefined") {
     const placeholder = document.createElement("p");
     placeholder.className = "config-empty";
-    placeholder.textContent = "Installed configuration will appear here after the plugin is present in the selected folder.";
+    placeholder.textContent = t("config.empty");
     container.append(placeholder);
     return;
   }
@@ -390,7 +482,7 @@ function renderTranslatorConfig(container, config) {
 
   const providerHeading = document.createElement("h4");
   providerHeading.className = "config-group-title";
-  providerHeading.textContent = "Provider";
+  providerHeading.textContent = t("config.section.provider");
   providerSection.append(providerHeading);
   providerSection.append(buildProviderToggle(config));
   container.append(providerSection);
@@ -401,7 +493,9 @@ function renderTranslatorConfig(container, config) {
 
   const settingsHeading = document.createElement("h4");
   settingsHeading.className = "config-group-title";
-  settingsHeading.textContent = provider === "deepl" ? "DeepL Settings" : "Local Settings";
+  settingsHeading.textContent = provider === "deepl"
+    ? t("config.section.deeplSettings")
+    : t("config.section.localSettings");
   settingsSection.append(settingsHeading);
 
   const fieldGrid = document.createElement("div");
@@ -428,11 +522,12 @@ function buildProviderToggle(config) {
   group.className = "config-radio-group";
 
   for (const option of [
-    { value: "local", label: "local" },
-    { value: "deepl", label: "deepl" },
+    { value: "local", label: "local", tooltipKey: "provider.local.tooltip" },
+    { value: "deepl", label: "deepl", tooltipKey: "provider.deepl.tooltip" },
   ]) {
     const label = document.createElement("label");
     label.className = "config-radio-option";
+    label.title = t(option.tooltipKey);
 
     const input = document.createElement("input");
     input.type = "radio";
@@ -449,6 +544,7 @@ function buildProviderToggle(config) {
 
     const text = document.createElement("code");
     text.textContent = option.label;
+    text.title = t(option.tooltipKey);
 
     label.append(input, text);
     group.append(label);
@@ -470,6 +566,7 @@ function buildFieldInput(configKey, field, currentValue) {
     const label = document.createElement("label");
     label.className = "config-toggle-option";
     label.setAttribute("for", inputId);
+    label.title = getFieldTooltipText(field);
 
     const input = document.createElement("input");
     input.id = inputId;
@@ -484,14 +581,15 @@ function buildFieldInput(configKey, field, currentValue) {
 
     const text = document.createElement("code");
     text.textContent = field.label;
+    text.title = getFieldTooltipText(field);
 
     label.append(input, text);
     wrapper.append(label);
 
-    if (field.description) {
+    if (field.descriptionKey) {
       const description = document.createElement("p");
       description.className = "config-field-description";
-      description.textContent = field.description;
+      description.textContent = t(field.descriptionKey);
       wrapper.append(description);
     }
 
@@ -501,13 +599,16 @@ function buildFieldInput(configKey, field, currentValue) {
   const label = document.createElement("label");
   label.className = "config-label";
   label.setAttribute("for", inputId);
+  label.title = getFieldTooltipText(field);
 
   const pathText = document.createElement("code");
   pathText.textContent = field.label;
+  pathText.title = getFieldTooltipText(field);
   label.append(pathText);
   wrapper.append(label);
 
   const input = createFieldControl(field, inputId, currentValue);
+  input.title = getFieldTooltipText(field);
   if (hasFieldValidationError(configKey, field)) {
     input.setAttribute("aria-invalid", "true");
   }
@@ -522,10 +623,10 @@ function buildFieldInput(configKey, field, currentValue) {
     wrapper.append(errorText);
   }
 
-  if (field.description) {
+  if (field.descriptionKey) {
     const description = document.createElement("p");
     description.className = "config-field-description";
-    description.textContent = field.description;
+    description.textContent = t(field.descriptionKey);
     wrapper.append(description);
   }
 
@@ -611,12 +712,24 @@ function clearConfigErrorsByPrefix(prefix) {
   );
 }
 
+function getFieldTooltipText(field) {
+  if (field.tooltipKey) {
+    return t(field.tooltipKey);
+  }
+
+  if (field.descriptionKey) {
+    return t(field.descriptionKey);
+  }
+
+  return field.label;
+}
+
 function renderLog() {
   logList.textContent = "";
 
   const entries = state.logs.length > 0
     ? state.logs
-    : [{ message: "Waiting to load the installer bundle.", tone: "info" }];
+    : [{ message: t("log.waitingForBundle"), tone: "info" }];
 
   for (const entry of entries) {
     const item = document.createElement("li");
@@ -632,8 +745,18 @@ function renderActionState() {
   saveConfigButton.disabled = state.busy || !canSaveConfig();
   resetConfigButton.disabled = state.busy || !hasUnsavedConfigChanges();
 
-  installButton.textContent = state.busyAction === "install" ? "Installing..." : "Install";
-  saveConfigButton.textContent = state.busyAction === "save-config" ? "Saving..." : "Save Config";
+  pickFolderButton.title = t("tooltip.pickFolderButton");
+  installButton.title = t("tooltip.installButton");
+  saveConfigButton.title = t("tooltip.saveConfigButton");
+  resetConfigButton.title = t("tooltip.resetConfigButton");
+
+  installButton.textContent = state.busyAction === "install"
+    ? t("button.installing")
+    : t("button.install");
+  saveConfigButton.textContent = state.busyAction === "save-config"
+    ? t("button.saving")
+    : t("button.saveConfig");
+  resetConfigButton.textContent = t("button.resetConfig");
 }
 
 function canInstall() {
@@ -682,7 +805,7 @@ function getConfigValidationError() {
 
   const apiKey = String(getValueAtPath(state.configDraft.translator, ["settings", "deepl", "apiKey"]) ?? "");
   if (apiKey.includes(DEEPL_APIKEY_PLACEHOLDER_SUBSTRING)) {
-    return `DeepL apiKey cannot contain "${DEEPL_APIKEY_PLACEHOLDER_SUBSTRING}".`;
+    return t("error.deeplPlaceholder", { value: DEEPL_APIKEY_PLACEHOLDER_SUBSTRING });
   }
 
   return null;

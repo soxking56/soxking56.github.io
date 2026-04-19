@@ -1,3 +1,5 @@
+import { createTranslator } from "./i18n.mjs";
+
 export const LOADER_PLUGIN_NAME = "live-translator-loader";
 export const CONFIG_FILE_MAP = Object.freeze({
   settings: "settings.json",
@@ -5,6 +7,7 @@ export const CONFIG_FILE_MAP = Object.freeze({
 });
 
 const CONFIG_FILE_NAMES = new Set(Object.values(CONFIG_FILE_MAP));
+const DEFAULT_T = createTranslator("en");
 
 export function patchEmptyPackageName(text) {
   if (!/("name"\s*:\s*)""/.test(text)) {
@@ -17,7 +20,7 @@ export function patchEmptyPackageName(text) {
   };
 }
 
-export function injectPluginEntry(text, entry) {
+export function injectPluginEntry(text, entry, warningMessage = "Unable to inject plugin entry into plugins.js automatically.") {
   if (text.includes(LOADER_PLUGIN_NAME)) {
     return { changed: false, alreadyPresent: true, text };
   }
@@ -28,7 +31,7 @@ export function injectPluginEntry(text, entry) {
       changed: false,
       alreadyPresent: false,
       text,
-      warning: "Unable to inject plugin entry into plugins.js automatically.",
+      warning: warningMessage,
     };
   }
 
@@ -39,27 +42,29 @@ export function injectPluginEntry(text, entry) {
   };
 }
 
-export async function loadManifest(url = new URL("./installer-manifest.json", import.meta.url)) {
+export async function loadManifest(url = new URL("./installer-manifest.json", import.meta.url), options = {}) {
+  const t = getTranslator(options);
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to load installer manifest: ${response.status}`);
+    throw new Error(t("core.loadManifestFailed", { status: response.status }));
   }
 
   return response.json();
 }
 
-export async function loadInstalledConfigs(rootHandle, manifest) {
+export async function loadInstalledConfigs(rootHandle, manifest, options = {}) {
+  const t = getTranslator(options);
   if (!rootHandle) {
     return {
       available: false,
       configs: null,
       supportDirectoryPath: null,
-      reason: "Select a game folder to load installed settings.json and translator.json.",
+      reason: t("core.selectFolderToLoadConfigs"),
       warnings: [],
     };
   }
 
-  const inspection = await inspectGameDirectory(rootHandle);
+  const inspection = await inspectGameDirectory(rootHandle, { t });
   if (!inspection.valid) {
     return {
       available: false,
@@ -80,7 +85,7 @@ export async function loadInstalledConfigs(rootHandle, manifest) {
       available: false,
       configs: null,
       supportDirectoryPath,
-      reason: `No installed live-translator config found in ${supportDirectoryPath}. Install the plugin first.`,
+      reason: t("core.noInstalledConfig", { path: supportDirectoryPath }),
       warnings: [],
     };
   }
@@ -93,7 +98,7 @@ export async function loadInstalledConfigs(rootHandle, manifest) {
         available: false,
         configs: null,
         supportDirectoryPath,
-        reason: `Installed config is incomplete. Missing ${supportDirectoryPath}/${fileName}.`,
+        reason: t("core.installedConfigIncomplete", { path: `${supportDirectoryPath}/${fileName}` }),
         warnings: [],
       };
     }
@@ -106,7 +111,10 @@ export async function loadInstalledConfigs(rootHandle, manifest) {
         available: false,
         configs: null,
         supportDirectoryPath,
-        reason: `Could not parse ${supportDirectoryPath}/${fileName}: ${error.message}.`,
+        reason: t("core.couldNotParseConfig", {
+          path: `${supportDirectoryPath}/${fileName}`,
+          message: error.message,
+        }),
         warnings: [],
       };
     }
@@ -116,7 +124,7 @@ export async function loadInstalledConfigs(rootHandle, manifest) {
     available: true,
     configs,
     supportDirectoryPath,
-    reason: `Editing installed settings.json and translator.json in ${supportDirectoryPath}.`,
+    reason: t("core.editingInstalledConfigs", { path: supportDirectoryPath }),
     warnings: [],
   };
 }
@@ -134,7 +142,8 @@ export async function ensureReadWritePermission(handle) {
   return (await handle.requestPermission(options)) === "granted";
 }
 
-export async function inspectGameDirectory(rootHandle) {
+export async function inspectGameDirectory(rootHandle, options = {}) {
+  const t = getTranslator(options);
   const packageCandidates = [];
   const rootPackageHandle = await tryGetFileHandle(rootHandle, "package.json");
   packageCandidates.push({
@@ -204,11 +213,11 @@ export async function inspectGameDirectory(rootHandle) {
     return {
       valid: false,
       rootName: rootHandle.name,
-      layoutLabel: "Unknown",
-      pluginsDirPath: "Missing",
-      pluginsFilePath: "Missing",
+      layoutLabel: t("folder.unknown"),
+      pluginsDirPath: t("folder.missing"),
+      pluginsFilePath: t("folder.missing"),
       packageCandidates,
-      reason: "Could not find js/plugins or www/js/plugins in the selected folder.",
+      reason: t("core.couldNotFindPlugins"),
     };
   }
 
@@ -220,7 +229,10 @@ export async function inspectGameDirectory(rootHandle) {
       pluginsDirPath: selectedLayout.pluginsDirPath,
       pluginsFilePath: selectedLayout.pluginsFilePath,
       packageCandidates,
-      reason: `Found ${selectedLayout.pluginsDirPath}, but ${selectedLayout.pluginsFilePath} is missing.`,
+      reason: t("core.foundPluginsButMissingFile", {
+        pluginsDirPath: selectedLayout.pluginsDirPath,
+        pluginsFilePath: selectedLayout.pluginsFilePath,
+      }),
     };
   }
 
@@ -234,20 +246,21 @@ export async function inspectGameDirectory(rootHandle) {
     jsDirHandle: selectedLayout.jsDirHandle,
     pluginsDirHandle: selectedLayout.pluginsDirHandle,
     pluginsFileHandle: selectedLayout.pluginsFileHandle,
-    reason: "Ready to install.",
+    reason: t("core.readyToInstall"),
   };
 }
 
 export async function installGame(rootHandle, manifest, options = {}) {
   const baseUrl = options.baseUrl ?? import.meta.url;
   const log = options.log ?? (() => {});
-  const inspection = await inspectGameDirectory(rootHandle);
+  const t = getTranslator(options);
+  const inspection = await inspectGameDirectory(rootHandle, { t });
   if (!inspection.valid) {
     throw new Error(inspection.reason);
   }
 
-  const bundle = await fetchInstallerBundle(manifest, baseUrl);
-  log(`Detected ${inspection.layoutLabel} folder structure.`, "info");
+  const bundle = await fetchInstallerBundle(manifest, baseUrl, t);
+  log(t("core.detectedFolderStructure", { layout: inspection.layoutLabel }), "info");
 
   let foundAnyPackage = false;
   let packageUpdates = 0;
@@ -265,7 +278,7 @@ export async function installGame(rootHandle, manifest, options = {}) {
       const currentName = hasNameProperty ? String(packageJson.name ?? "") : null;
 
       if (hasNameProperty && currentName !== null && currentName.trim() === "") {
-        log(`Found empty name field in ${candidate.path}, setting to "Game".`, "warning");
+        log(t("core.foundEmptyName", { path: candidate.path }), "warning");
 
         const backupFileName = `${candidate.fileName}.backup`;
         const backupHandle = await tryGetFileHandle(candidate.parentHandle, backupFileName);
@@ -274,34 +287,43 @@ export async function installGame(rootHandle, manifest, options = {}) {
             create: true,
           });
           await writeBytes(createdBackupHandle, packageData.bytes);
-          log(`Backup created: ${candidate.path}.backup`, "info");
+          log(t("core.backupCreated", { path: `${candidate.path}.backup` }), "info");
         }
 
         const patchedPackage = patchEmptyPackageName(packageData.text);
         if (patchedPackage.changed) {
           await writeTextFile(candidate.handle, patchedPackage.text, packageData.hasBom);
           packageUpdates += 1;
-          log(`Updated name field to "Game" in ${candidate.path}.`, "success");
+          log(t("core.updatedName", { path: candidate.path }), "success");
         }
       } else if (hasNameProperty && currentName.trim() !== "") {
-        log(`${candidate.path} name field is already set to "${currentName}".`, "info");
+        log(t("core.nameAlreadySet", {
+          path: candidate.path,
+          name: currentName,
+        }), "info");
       } else {
-        log(`No empty name field found in ${candidate.path}.`, "info");
+        log(t("core.noEmptyName", { path: candidate.path }), "info");
       }
     } catch (error) {
-      log(`Warning: Could not process ${candidate.path}: ${error.message}`, "warning");
+      log(t("core.couldNotProcessPackage", {
+        path: candidate.path,
+        message: error.message,
+      }), "warning");
     }
   }
 
   if (!foundAnyPackage) {
-    log("package.json not found. This is normal for some RPG Maker versions.", "warning");
+    log(t("core.packageJsonNotFound"), "warning");
   }
 
   const loaderHandle = await inspection.pluginsDirHandle.getFileHandle(manifest.loaderFile, {
     create: true,
   });
   await writeBytes(loaderHandle, bundle.loader.bytes);
-  log(`Copied ${manifest.loaderFile} into ${inspection.pluginsDirPath}.`, "success");
+  log(t("core.copiedLoader", {
+    fileName: manifest.loaderFile,
+    path: inspection.pluginsDirPath,
+  }), "success");
 
   const existingSupportDir = await tryGetDirectoryHandle(
     inspection.pluginsDirHandle,
@@ -313,14 +335,19 @@ export async function installGame(rootHandle, manifest, options = {}) {
     }));
 
   if (!existingSupportDir) {
-    log(`Created plugin support directory at ${inspection.pluginsDirPath}/${manifest.supportDirectory}.`, "info");
+    log(t("core.createdSupportDirectory", {
+      path: `${inspection.pluginsDirPath}/${manifest.supportDirectory}`,
+    }), "info");
   }
 
   let supportFilesCopied = 0;
   for (const file of bundle.supportFiles) {
     const existingSupportFileHandle = await tryGetFileHandle(supportDirHandle, file.name);
     if (CONFIG_FILE_NAMES.has(file.name) && existingSupportFileHandle) {
-      log(`Kept existing ${file.name} in ${inspection.pluginsDirPath}/${manifest.supportDirectory}.`, "info");
+      log(t("core.keptExistingSupportFile", {
+        fileName: file.name,
+        path: `${inspection.pluginsDirPath}/${manifest.supportDirectory}`,
+      }), "info");
       continue;
     }
 
@@ -328,31 +355,38 @@ export async function installGame(rootHandle, manifest, options = {}) {
       ?? (await supportDirHandle.getFileHandle(file.name, { create: true }));
     await writeBytes(supportFileHandle, file.bytes);
     supportFilesCopied += 1;
-    log(`Copied ${file.name} into ${inspection.pluginsDirPath}/${manifest.supportDirectory}.`, "success");
+    log(t("core.copiedSupportFile", {
+      fileName: file.name,
+      path: `${inspection.pluginsDirPath}/${manifest.supportDirectory}`,
+    }), "success");
   }
 
   const pluginsData = await readTextFile(inspection.pluginsFileHandle);
   let pluginEntryAdded = false;
 
   if (pluginsData.text.includes(LOADER_PLUGIN_NAME)) {
-    log(`Plugin entry already exists in ${inspection.pluginsFilePath}.`, "warning");
+    log(t("core.pluginEntryAlreadyExists", { path: inspection.pluginsFilePath }), "warning");
   } else {
-    log(`Adding plugin entry to ${inspection.pluginsFilePath}.`, "info");
+    log(t("core.addingPluginEntry", { path: inspection.pluginsFilePath }), "info");
 
     const pluginsBackupHandle = await inspection.jsDirHandle.getFileHandle("plugins.js.backup", {
       create: true,
     });
     await writeBytes(pluginsBackupHandle, pluginsData.bytes);
-    log(`Backup created: ${inspection.pluginsFilePath}.backup`, "info");
+    log(t("core.backupCreated", { path: `${inspection.pluginsFilePath}.backup` }), "info");
 
-    const updatedPlugins = injectPluginEntry(pluginsData.text, manifest.pluginEntry);
+    const updatedPlugins = injectPluginEntry(
+      pluginsData.text,
+      manifest.pluginEntry,
+      t("core.injectPluginEntryFailure"),
+    );
     if (!updatedPlugins.changed) {
       throw new Error(updatedPlugins.warning);
     }
 
     await writeTextFile(inspection.pluginsFileHandle, updatedPlugins.text, pluginsData.hasBom);
     pluginEntryAdded = true;
-    log(`Plugin entry added to ${inspection.pluginsFilePath}.`, "success");
+    log(t("core.pluginEntryAdded", { path: inspection.pluginsFilePath }), "success");
   }
 
   return {
@@ -363,8 +397,9 @@ export async function installGame(rootHandle, manifest, options = {}) {
   };
 }
 
-export async function saveInstalledConfigs(rootHandle, manifest, configs) {
-  const inspection = await inspectGameDirectory(rootHandle);
+export async function saveInstalledConfigs(rootHandle, manifest, configs, options = {}) {
+  const t = getTranslator(options);
+  const inspection = await inspectGameDirectory(rootHandle, { t });
   if (!inspection.valid) {
     throw new Error(inspection.reason);
   }
@@ -375,13 +410,15 @@ export async function saveInstalledConfigs(rootHandle, manifest, configs) {
     manifest.supportDirectory,
   );
   if (!supportDirHandle) {
-    throw new Error(`No installed live-translator config found in ${supportDirectoryPath}. Install the plugin first.`);
+    throw new Error(t("core.noInstalledConfig", { path: supportDirectoryPath }));
   }
 
   for (const [key, fileName] of Object.entries(CONFIG_FILE_MAP)) {
     const fileHandle = await tryGetFileHandle(supportDirHandle, fileName);
     if (!fileHandle) {
-      throw new Error(`Installed config is incomplete. Missing ${supportDirectoryPath}/${fileName}.`);
+      throw new Error(t("core.installedConfigIncomplete", {
+        path: `${supportDirectoryPath}/${fileName}`,
+      }));
     }
 
     const existingData = await readTextFile(fileHandle);
@@ -394,27 +431,30 @@ export async function saveInstalledConfigs(rootHandle, manifest, configs) {
   };
 }
 
-async function fetchInstallerBundle(manifest, baseUrl) {
+async function fetchInstallerBundle(manifest, baseUrl, t) {
   const bundleDirectory = manifest.bundleDirectory.replace(/\/+$/, "");
   const loader = {
     name: manifest.loaderFile,
-    bytes: await fetchAssetBytes(new URL(`${bundleDirectory}/${manifest.loaderFile}`, baseUrl)),
+    bytes: await fetchAssetBytes(new URL(`${bundleDirectory}/${manifest.loaderFile}`, baseUrl), t),
   };
 
   const supportFiles = await Promise.all(
     manifest.supportFiles.map(async (name) => ({
       name,
-      bytes: await fetchAssetBytes(new URL(`${bundleDirectory}/${name}`, baseUrl)),
+      bytes: await fetchAssetBytes(new URL(`${bundleDirectory}/${name}`, baseUrl), t),
     })),
   );
 
   return { loader, supportFiles };
 }
 
-async function fetchAssetBytes(url) {
+async function fetchAssetBytes(url, t) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to load installer asset ${url.pathname}: ${response.status}`);
+    throw new Error(t("core.fetchAssetFailed", {
+      path: url.pathname,
+      status: response.status,
+    }));
   }
 
   return new Uint8Array(await response.arrayBuffer());
@@ -462,6 +502,10 @@ function encodeTextBytes(text) {
 
 function serializeConfigFile(config) {
   return `${JSON.stringify(config, null, 4)}\n`;
+}
+
+function getTranslator(options = {}) {
+  return typeof options.t === "function" ? options.t : DEFAULT_T;
 }
 
 async function tryGetDirectoryHandle(parentHandle, name) {
