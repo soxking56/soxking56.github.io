@@ -142,7 +142,8 @@ button:disabled {
 }
 
 .package-list,
-.log-list {
+.log-list,
+.manual-steps {
   margin: 0;
   padding-left: 20px;
 }
@@ -152,7 +153,8 @@ button:disabled {
 }
 
 .package-list li + li,
-.log-list li + li {
+.log-list li + li,
+.manual-steps li + li {
   margin-top: 8px;
 }
 
@@ -176,6 +178,34 @@ button:disabled {
   color: var(--success);
 }
 
+.download-copy {
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.download-link {
+  margin-bottom: 12px;
+}
+
+.download-link a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--accent-strong);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.download-link a:hover,
+.download-link a:focus-visible {
+  background: var(--accent-strong);
+}
+
 @media (max-width: 640px) {
   .app-shell {
     width: min(100vw - 20px, 960px);
@@ -191,6 +221,10 @@ button:disabled {
   }
 
   button {
+    width: 100%;
+  }
+
+  .download-link a {
     width: 100%;
   }
 }
