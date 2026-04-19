@@ -1,0 +1,53 @@
+name: Update Translator Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Pages repo
+        uses: actions/checkout@v6
+
+      - name: Check out translator repo release branch
+        uses: actions/checkout@v6
+        with:
+          repository: nt7011/RPG-Maker-Live-Translator
+          ref: release
+          path: _upstream
+
+      - name: Copy latest installer folder into the site
+        run: |
+          rm -rf live-translator-installer
+          cp -R _upstream/live-translator-installer ./live-translator-installer
+          rm -rf _upstream
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
