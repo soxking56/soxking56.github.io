@@ -36,3 +36,21 @@ test("createTranslator returns translated copy and interpolates placeholders", (
     "설치가 완료되었습니다. 플러그인 파일 3개를 기록하고 js/plugins/live-translator를 업데이트했습니다.",
   );
 });
+
+test("createTranslator includes cache-only provider copy", () => {
+  const en = createTranslator("en-US");
+  const ko = createTranslator("ko-KR");
+
+  assert.equal(
+    en("config.section.noneSettings.note"),
+    "Disables new translation requests and uses translation-cache.log.",
+  );
+  assert.equal(
+    en("provider.none.tooltip"),
+    "Disable new translation requests and use only translation-cache.log.",
+  );
+  assert.equal(
+    ko("config.section.noneSettings.note"),
+    "새 번역 요청을 비활성화하고 translation-cache.log만 사용합니다.",
+  );
+});

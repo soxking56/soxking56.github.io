@@ -578,9 +578,19 @@ function renderTranslatorConfig(container, config) {
   providerHeading.textContent = t("config.section.provider");
   providerSection.append(providerHeading);
   providerSection.append(buildProviderToggle(config));
-  container.append(providerSection);
 
   const provider = getSelectedProvider(config);
+  if (provider === "none") {
+    const providerNote = document.createElement("p");
+    providerNote.className = "config-group-note";
+    providerNote.textContent = t("config.section.noneSettings.note");
+    providerSection.append(providerNote);
+    container.append(providerSection);
+    return;
+  }
+
+  container.append(providerSection);
+
   const settingsSection = document.createElement("section");
   settingsSection.className = "config-group";
 
@@ -624,6 +634,7 @@ function buildProviderToggle(config) {
   for (const option of [
     { value: "local", label: "local", tooltipKey: "provider.local.tooltip" },
     { value: "deepl", label: "deepl", tooltipKey: "provider.deepl.tooltip" },
+    { value: "none", label: "none", tooltipKey: "provider.none.tooltip" },
   ]) {
     const label = document.createElement("label");
     label.className = "config-radio-option";
@@ -920,7 +931,11 @@ function hasExistingInstallation() {
 }
 
 function getSelectedProvider(config) {
-  return getValueAtPath(config, ["provider"]) === "deepl" ? "deepl" : "local";
+  const provider = String(getValueAtPath(config, ["provider"]) ?? "").trim().toLowerCase();
+  if (provider === "deepl" || provider === "local" || provider === "none") {
+    return provider;
+  }
+  return "local";
 }
 
 function getConfigValidationError() {
