@@ -11,6 +11,7 @@ import {
   configDraftsEqual,
   getValueAtPath,
   setValueAtPath,
+  validateNumberValue,
 } from "./config-editor.mjs";
 import {
   createTranslator,
@@ -24,6 +25,19 @@ const SETTINGS_FIELD = {
   label: "disableCjkFilter",
   descriptionKey: "field.translation.disableCjkFilter.description",
   tooltipKey: "field.translation.disableCjkFilter.tooltip",
+};
+
+const GAME_MESSAGE_TEXT_SCALE_FIELD = {
+  id: "gameMessage.textScale",
+  path: ["gameMessage", "textScale"],
+  inputKind: "number",
+  label: "textScale",
+  descriptionKey: "field.gameMessage.textScale.description",
+  tooltipKey: "field.gameMessage.textScale.tooltip",
+  integer: true,
+  min: 1,
+  max: 100,
+  validationMessageKey: "error.gameMessageTextScaleRange",
 };
 
 const LOCAL_TRANSLATOR_FIELDS = [
@@ -464,6 +478,27 @@ function renderSettingsConfig(container, config) {
 
   section.append(fieldGrid);
   container.append(section);
+
+  const gameMessageSection = document.createElement("section");
+  gameMessageSection.className = "config-group";
+
+  const gameMessageHeading = document.createElement("h4");
+  gameMessageHeading.className = "config-group-title";
+  gameMessageHeading.textContent = t("config.section.gameMessage");
+  gameMessageSection.append(gameMessageHeading);
+
+  const gameMessageFieldGrid = document.createElement("div");
+  gameMessageFieldGrid.className = "config-field-grid";
+  gameMessageFieldGrid.append(
+    buildFieldInput(
+      "settings",
+      GAME_MESSAGE_TEXT_SCALE_FIELD,
+      getValueAtPath(config, GAME_MESSAGE_TEXT_SCALE_FIELD.path),
+    ),
+  );
+
+  gameMessageSection.append(gameMessageFieldGrid);
+  container.append(gameMessageSection);
 }
 
 function renderTranslatorConfig(container, config) {
@@ -656,7 +691,13 @@ function createFieldControl(field, inputId, currentValue) {
 
   if (field.inputKind === "number") {
     input.type = "number";
-    input.step = "any";
+    input.step = field.integer ? "1" : "any";
+    if (typeof field.min === "number") {
+      input.min = String(field.min);
+    }
+    if (typeof field.max === "number") {
+      input.max = String(field.max);
+    }
     input.value = typeof currentValue === "undefined" ? "" : String(currentValue);
     return input;
   }
@@ -686,6 +727,13 @@ function attachFieldHandler(configKey, field, input) {
       }
 
       setValueAtPath(state.configDraft[configKey], field.path, parsed);
+      if (!isFieldNumberValueValid(field, parsed)) {
+        markFieldInvalid(errorKey, input);
+        renderConfigStatus();
+        renderActionState();
+        return;
+      }
+
       clearFieldError(errorKey, input);
       renderConfigStatus();
       renderActionState();
@@ -807,6 +855,15 @@ function getSelectedProvider(config) {
 }
 
 function getConfigValidationError() {
+  const settingsValidationError = getSettingsConfigValidationError();
+  if (settingsValidationError) {
+    return settingsValidationError;
+  }
+
+  return getTranslatorConfigValidationError();
+}
+
+function getTranslatorConfigValidationError() {
   if (!state.configDraft?.translator) {
     return null;
   }
@@ -828,11 +885,53 @@ function hasFieldValidationError(configKey, field) {
 }
 
 function getFieldValidationError(configKey, field) {
+  const config = state.configDraft?.[configKey];
+  if (field.inputKind === "number" && config) {
+    const value = getValueAtPath(config, field.path);
+    if (typeof value !== "undefined" && !isFieldNumberValueValid(field, Number(value))) {
+      return getNumberFieldValidationMessage(field);
+    }
+  }
+
   if (configKey === "translator" && field.id === "settings.deepl.apiKey") {
-    return getConfigValidationError();
+    return getTranslatorConfigValidationError();
   }
 
   return null;
+}
+
+function getSettingsConfigValidationError() {
+  if (!state.configDraft?.settings) {
+    return null;
+  }
+
+  const textScale = getValueAtPath(state.configDraft.settings, GAME_MESSAGE_TEXT_SCALE_FIELD.path);
+  if (typeof textScale === "undefined") {
+    return null;
+  }
+
+  return isFieldNumberValueValid(GAME_MESSAGE_TEXT_SCALE_FIELD, Number(textScale))
+    ? null
+    : getNumberFieldValidationMessage(GAME_MESSAGE_TEXT_SCALE_FIELD);
+}
+
+function isFieldNumberValueValid(field, value) {
+  return validateNumberValue(value, {
+    integer: field.integer,
+    min: field.min,
+    max: field.max,
+  });
+}
+
+function getNumberFieldValidationMessage(field) {
+  if (field.validationMessageKey) {
+    return t(field.validationMessageKey, {
+      min: field.min,
+      max: field.max,
+    });
+  }
+
+  return t("config.status.invalidNumber.one");
 }
 
 function getTextareaRows(value) {

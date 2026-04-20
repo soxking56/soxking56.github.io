@@ -7,6 +7,7 @@ import {
   configDraftsEqual,
   getValueAtPath,
   setValueAtPath,
+  validateNumberValue,
 } from "../config-editor.mjs";
 
 test("buildConfigGroups flattens nested objects and arrays into editable fields", () => {
@@ -115,4 +116,12 @@ test("setValueAtPath creates missing nested containers and getValueAtPath reads 
   assert.equal(getValueAtPath(draft.translator, ["settings", "deepl", "apiKey"]), "abc123");
   assert.equal(getValueAtPath(draft.translator, ["settings", "local", "port"]), 1234);
   assert.equal(getValueAtPath(draft.translator, ["settings", "local", "model"]), undefined);
+});
+
+test("validateNumberValue enforces integer and range constraints", () => {
+  assert.equal(validateNumberValue(100, { integer: true, min: 1, max: 100 }), true);
+  assert.equal(validateNumberValue(0, { integer: true, min: 1, max: 100 }), false);
+  assert.equal(validateNumberValue(101, { integer: true, min: 1, max: 100 }), false);
+  assert.equal(validateNumberValue(50.5, { integer: true, min: 1, max: 100 }), false);
+  assert.equal(validateNumberValue(50.5, { min: 1, max: 100 }), true);
 });

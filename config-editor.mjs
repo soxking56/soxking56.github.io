@@ -75,6 +75,26 @@ export function setValueAtPath(target, path, value) {
   return target;
 }
 
+export function validateNumberValue(value, options = {}) {
+  if (!Number.isFinite(value)) {
+    return false;
+  }
+
+  if (options.integer && !Number.isInteger(value)) {
+    return false;
+  }
+
+  if (typeof options.min === "number" && value < options.min) {
+    return false;
+  }
+
+  if (typeof options.max === "number" && value > options.max) {
+    return false;
+  }
+
+  return true;
+}
+
 function collectFields(value, absolutePath, relativePath) {
   if (isPrimitive(value)) {
     return [createField(absolutePath, value, relativePath)];
