@@ -33,6 +33,10 @@ jobs:
         run: |
           rm -rf live-translator-installer
           cp -R _upstream/live-translator-installer ./live-translator-installer
+          rm -f version.json
+          if [ -f _upstream/version.json ]; then
+            cp _upstream/version.json ./version.json
+          fi
           rm -rf _upstream
 
       - name: Configure Pages
