@@ -45,6 +45,7 @@ test("getMissingConfigFields reports missing leaf paths from bundled defaults", 
       settings: {
         translation: {
           disableCjkFilter: false,
+          maxOutputTokens: 512,
         },
         gameMessage: {
           textScale: 100,
@@ -73,6 +74,7 @@ test("getMissingConfigFields reports missing leaf paths from bundled defaults", 
   );
 
   assert.deepEqual(missingFields, [
+    "settings.json:translation.maxOutputTokens",
     "settings.json:gameMessage.textScale",
     "translator.json:settings.deepl.apiKey",
   ]);
@@ -126,7 +128,7 @@ test("installGame overwrites existing config files during reinstall", async () =
     pluginEntry: '{"name":"live-translator-loader","status":true,"description":"Entry point","parameters":{}},',
   };
 
-  const defaultSettings = '{\n    "gameMessage": {\n        "textScale": 100\n    }\n}\n';
+  const defaultSettings = '{\n    "translation": {\n        "maxOutputTokens": 512\n    },\n    "gameMessage": {\n        "textScale": 100\n    }\n}\n';
   const defaultTranslator = '{\n    "provider": "local"\n}\n';
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => createFetchResponse({

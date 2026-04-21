@@ -28,6 +28,19 @@ const SETTINGS_FIELD = {
   tooltipKey: "field.translation.disableCjkFilter.tooltip",
 };
 
+const TRANSLATION_MAX_OUTPUT_TOKENS_FIELD = {
+  id: "translation.maxOutputTokens",
+  path: ["translation", "maxOutputTokens"],
+  inputKind: "number",
+  label: "maxOutputTokens",
+  descriptionKey: "field.translation.maxOutputTokens.description",
+  tooltipKey: "field.translation.maxOutputTokens.tooltip",
+  integer: true,
+  min: 1,
+  required: true,
+  validationMessageKey: "error.translationMaxOutputTokensRange",
+};
+
 const GAME_MESSAGE_TEXT_SCALE_FIELD = {
   id: "gameMessage.textScale",
   path: ["gameMessage", "textScale"],
@@ -38,6 +51,7 @@ const GAME_MESSAGE_TEXT_SCALE_FIELD = {
   integer: true,
   min: 1,
   max: 100,
+  required: true,
   validationMessageKey: "error.gameMessageTextScaleRange",
 };
 
@@ -555,6 +569,18 @@ function renderSettingsConfig(container, config) {
   );
 
   section.append(fieldGrid);
+
+  const translationFieldGrid = document.createElement("div");
+  translationFieldGrid.className = "config-field-grid";
+  translationFieldGrid.append(
+    buildFieldInput(
+      "settings",
+      TRANSLATION_MAX_OUTPUT_TOKENS_FIELD,
+      getValueAtPath(config, TRANSLATION_MAX_OUTPUT_TOKENS_FIELD.path),
+    ),
+  );
+
+  section.append(translationFieldGrid);
   container.append(section);
 
   const gameMessageSection = document.createElement("section");
@@ -990,9 +1016,13 @@ function hasFieldValidationError(configKey, field) {
 
 function getFieldValidationError(configKey, field) {
   const config = state.configDraft?.[configKey];
-  if (field.inputKind === "number" && config) {
+  if (config) {
     const value = getValueAtPath(config, field.path);
-    if (typeof value !== "undefined" && !isFieldNumberValueValid(field, Number(value))) {
+    if (field.required && typeof value === "undefined") {
+      return getMissingFieldValidationMessage(field);
+    }
+
+    if (field.inputKind === "number" && typeof value !== "undefined" && !isFieldNumberValueValid(field, Number(value))) {
       return getNumberFieldValidationMessage(field);
     }
   }
@@ -1009,14 +1039,21 @@ function getSettingsConfigValidationError() {
     return null;
   }
 
-  const textScale = getValueAtPath(state.configDraft.settings, GAME_MESSAGE_TEXT_SCALE_FIELD.path);
-  if (typeof textScale === "undefined") {
-    return null;
+  for (const field of [
+    TRANSLATION_MAX_OUTPUT_TOKENS_FIELD,
+    GAME_MESSAGE_TEXT_SCALE_FIELD,
+  ]) {
+    const value = getValueAtPath(state.configDraft.settings, field.path);
+    if (typeof value !== "undefined" && !isFieldNumberValueValid(field, Number(value))) {
+      return getNumberFieldValidationMessage(field);
+    }
+
+    if (field.required && typeof value === "undefined") {
+      return getMissingFieldValidationMessage(field);
+    }
   }
 
-  return isFieldNumberValueValid(GAME_MESSAGE_TEXT_SCALE_FIELD, Number(textScale))
-    ? null
-    : getNumberFieldValidationMessage(GAME_MESSAGE_TEXT_SCALE_FIELD);
+  return null;
 }
 
 function isFieldNumberValueValid(field, value) {
@@ -1036,6 +1073,12 @@ function getNumberFieldValidationMessage(field) {
   }
 
   return t("config.status.invalidNumber.one");
+}
+
+function getMissingFieldValidationMessage(field) {
+  return t("error.requiredConfigFieldMissing", {
+    field: field.id,
+  });
 }
 
 function getTextareaRows(value) {
