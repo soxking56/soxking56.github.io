@@ -178,10 +178,19 @@ button:disabled {
   align-items: flex-start;
 }
 
+.section-heading > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .config-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  margin-left: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  align-self: flex-start;
 }
 
 .section-note {
