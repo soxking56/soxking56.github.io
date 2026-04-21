@@ -263,6 +263,34 @@ button:disabled {
   color: var(--warn);
 }
 
+.section-note.is-warning.is-reinstall-save-reminder {
+  border-color: #f59e0b;
+  border-left: 6px solid #d97706;
+  background: #fffbeb;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
+  color: #7c2d12;
+}
+
+.section-note.is-reinstall-save-reminder-flash {
+  animation: config-save-reminder-flash 0.46s ease-in-out 2;
+  transform-origin: center;
+}
+
+@keyframes config-save-reminder-flash {
+  0%,
+  100% {
+    background: #fffbeb;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
+    transform: scale(1);
+  }
+
+  50% {
+    background: #facc15;
+    box-shadow: 0 0 0 6px rgba(217, 119, 6, 0.42);
+    transform: scale(1.015);
+  }
+}
+
 .section-note.is-error {
   border-color: #fca5a5;
   background: #fef2f2;
@@ -273,6 +301,13 @@ button:disabled {
   border-color: #86efac;
   background: #f0fdf4;
   color: var(--success);
+}
+
+.config-status-reminder {
+  display: block;
+  margin-top: 4px;
+  color: #9a3412;
+  font-weight: 800;
 }
 
 .config-file-section {

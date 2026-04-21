@@ -6,6 +6,7 @@ import {
   cloneConfigSet,
   configDraftsEqual,
   getValueAtPath,
+  mergeConfigDefaults,
   setValueAtPath,
   validateNumberValue,
 } from "../config-editor.mjs";
@@ -116,6 +117,80 @@ test("setValueAtPath creates missing nested containers and getValueAtPath reads 
   assert.equal(getValueAtPath(draft.translator, ["settings", "deepl", "apiKey"]), "abc123");
   assert.equal(getValueAtPath(draft.translator, ["settings", "local", "port"]), 1234);
   assert.equal(getValueAtPath(draft.translator, ["settings", "local", "model"]), undefined);
+});
+
+test("mergeConfigDefaults preserves old values while keeping restored default fields", () => {
+  const restoredDefaults = {
+    settings: {
+      translation: {
+        disableCjkFilter: false,
+        maxOutputTokens: 512,
+      },
+      gameMessage: {
+        textScale: 100,
+      },
+    },
+    translator: {
+      provider: "local",
+      settings: {
+        local: {
+          model: "default-model",
+          temperature: 0.7,
+        },
+        deepl: {
+          apiKey: "________NONE________",
+        },
+      },
+    },
+  };
+  const preservedDraft = {
+    settings: {
+      translation: {
+        disableCjkFilter: true,
+      },
+      gameMessage: "old-invalid-section",
+      customSetting: "keep-me",
+    },
+    translator: {
+      provider: "deepl",
+      settings: {
+        local: {
+          model: "saved-model",
+        },
+        deepl: "old-invalid-section",
+      },
+    },
+  };
+
+  const merged = mergeConfigDefaults(restoredDefaults, preservedDraft);
+
+  assert.deepEqual(merged, {
+    settings: {
+      translation: {
+        disableCjkFilter: true,
+        maxOutputTokens: 512,
+      },
+      gameMessage: {
+        textScale: 100,
+      },
+      customSetting: "keep-me",
+    },
+    translator: {
+      provider: "deepl",
+      settings: {
+        local: {
+          model: "saved-model",
+          temperature: 0.7,
+        },
+        deepl: {
+          apiKey: "________NONE________",
+        },
+      },
+    },
+  });
+
+  merged.settings.translation.maxOutputTokens = 1024;
+  assert.equal(restoredDefaults.settings.translation.maxOutputTokens, 512);
 });
 
 test("validateNumberValue enforces integer and range constraints", () => {

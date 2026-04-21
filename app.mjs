@@ -12,6 +12,7 @@ import {
   cloneConfigSet,
   configDraftsEqual,
   getValueAtPath,
+  mergeConfigDefaults,
   setValueAtPath,
   validateNumberValue,
 } from "./config-editor.mjs";
@@ -145,6 +146,10 @@ const CONFIG_STATUS_TONE_CLASSES = [
   "is-error",
   "is-success",
 ];
+const CONFIG_STATUS_FLAG_CLASSES = [
+  "is-reinstall-save-reminder",
+];
+const CONFIG_STATUS_FLASH_CLASS = "is-reinstall-save-reminder-flash";
 const VERSION_STATUS_TONE_CLASSES = [
   "is-neutral",
   "is-warning",
@@ -152,6 +157,7 @@ const VERSION_STATUS_TONE_CLASSES = [
 ];
 const locale = detectPreferredLocale(window.navigator);
 const t = createTranslator(locale);
+let configStatusFlashFrame = null;
 
 const state = {
   manifest: null,
@@ -166,6 +172,8 @@ const state = {
   configEditable: false,
   configAlertMessage: "",
   configStatusMessage: t("config.status.initial"),
+  configUnsavedMessage: "",
+  configUnsavedReminderFlashPending: false,
   configErrors: new Set(),
   translatorVersion: null,
   installedTranslatorVersion: null,
@@ -196,6 +204,7 @@ pickFolderButton.addEventListener("click", handlePickFolder);
 installButton.addEventListener("click", handleInstall);
 saveConfigButton.addEventListener("click", handleSaveConfig);
 resetConfigButton.addEventListener("click", handleResetConfig);
+configStatus.addEventListener("animationend", handleConfigStatusAnimationEnd);
 
 render();
 initialize();
@@ -283,6 +292,7 @@ async function handleInstall() {
     }
 
     const reinstall = hasExistingInstallation();
+    const preservedConfigDraft = reinstall ? getCurrentConfigDraft() : null;
     const result = await installGame(state.rootHandle, state.manifest, {
       baseUrl: import.meta.url,
       log: pushLog,
@@ -302,7 +312,10 @@ async function handleInstall() {
     }
 
     state.inspection = await inspectGameDirectory(state.rootHandle, { t });
-    await refreshInstalledConfigSnapshot({ logOutcome: true });
+    await refreshInstalledConfigSnapshot({
+      logOutcome: true,
+      preservedConfigDraft,
+    });
   } catch (error) {
     pushLog(t("error.installationFailed", { message: error.message }), "error");
   } finally {
@@ -356,6 +369,8 @@ function handleResetConfig() {
   }
 
   state.configDraft = cloneConfigSet(state.loadedConfigs);
+  state.configUnsavedMessage = "";
+  state.configUnsavedReminderFlashPending = false;
   state.configErrors = new Set();
   renderConfigEditor();
   render();
@@ -370,6 +385,7 @@ async function refreshInstalledConfigSnapshot(options = {}) {
   const snapshot = await loadInstalledConfigs(state.rootHandle, state.manifest, { t });
   applyConfigSnapshot(snapshot, {
     logWarnings: options.logWarnings ?? true,
+    preservedConfigDraft: options.preservedConfigDraft ?? null,
   });
 
   if (options.logOutcome ?? false) {
@@ -378,14 +394,32 @@ async function refreshInstalledConfigSnapshot(options = {}) {
 }
 
 function applyConfigSnapshot(snapshot, options = {}) {
+  const loadedConfigs = snapshot.configs ? cloneConfigSet(snapshot.configs) : null;
+  const configDraft = createConfigDraftFromSnapshot(
+    snapshot,
+    loadedConfigs,
+    options.preservedConfigDraft,
+  );
+  const preservedDraftApplied = Boolean(
+    snapshot.editable
+      && loadedConfigs
+      && configDraft
+      && options.preservedConfigDraft
+      && !configDraftsEqual(loadedConfigs, configDraft),
+  );
+
   state.existingInstallationDetected = Boolean(snapshot.installed);
   state.installedVersionChecked = Boolean(snapshot.installedVersionChecked);
   state.installedTranslatorVersion = snapshot.installedVersion ?? null;
-  state.loadedConfigs = snapshot.configs ? cloneConfigSet(snapshot.configs) : null;
-  state.configDraft = snapshot.configs ? cloneConfigSet(snapshot.configs) : null;
+  state.loadedConfigs = loadedConfigs;
+  state.configDraft = configDraft;
   state.configEditable = Boolean(snapshot.editable);
   state.configAlertMessage = getConfigAlertMessage(snapshot);
   state.configStatusMessage = snapshot.reason;
+  state.configUnsavedMessage = preservedDraftApplied
+    ? t("config.status.reinstallPreserved")
+    : "";
+  state.configUnsavedReminderFlashPending = preservedDraftApplied;
   state.configErrors = new Set();
 
   renderConfigEditor();
@@ -396,6 +430,30 @@ function applyConfigSnapshot(snapshot, options = {}) {
       pushLog(warning, "warning");
     }
   }
+}
+
+function getCurrentConfigDraft() {
+  if (state.configDraft) {
+    return cloneConfigSet(state.configDraft);
+  }
+
+  if (state.loadedConfigs) {
+    return cloneConfigSet(state.loadedConfigs);
+  }
+
+  return null;
+}
+
+function createConfigDraftFromSnapshot(snapshot, loadedConfigs, preservedConfigDraft) {
+  if (!loadedConfigs) {
+    return null;
+  }
+
+  if (snapshot.editable && preservedConfigDraft) {
+    return mergeConfigDefaults(loadedConfigs, preservedConfigDraft);
+  }
+
+  return cloneConfigSet(loadedConfigs);
 }
 
 function supportsInstallation() {
@@ -527,17 +585,21 @@ function renderConfigStatus() {
   let message = state.configStatusMessage;
   let summary = "";
   let tone = "neutral";
+  let showReinstallSaveReminder = false;
+  let flashReinstallSaveReminder = false;
   const validationError = getConfigValidationError();
 
   if (state.configDraft) {
     if (!state.configEditable) {
       if (state.configAlertMessage) {
         setConfigStatusTone("error");
+        setConfigStatusFlags();
         configStatus.textContent = t("config.status.locked");
         return;
       }
 
       setConfigStatusTone("neutral");
+      setConfigStatusFlags();
       configStatus.textContent = message;
       return;
     }
@@ -555,20 +617,88 @@ function renderConfigStatus() {
       );
     } else if (hasUnsavedConfigChanges()) {
       tone = "warning";
-      summary = t("config.status.unsaved");
+      summary = state.configUnsavedMessage || t("config.status.unsaved");
+      showReinstallSaveReminder = Boolean(state.configUnsavedMessage);
+      flashReinstallSaveReminder = Boolean(
+        showReinstallSaveReminder && state.configUnsavedReminderFlashPending,
+      );
+      state.configUnsavedReminderFlashPending = false;
     } else {
       tone = "success";
       summary = t("config.status.clean");
+      state.configUnsavedReminderFlashPending = false;
     }
   }
 
   setConfigStatusTone(tone);
-  configStatus.textContent = summary ? `${message}\n${summary}` : message;
+  setConfigStatusFlags({
+    reinstallSaveReminder: showReinstallSaveReminder,
+  });
+  renderConfigStatusText(message, summary, {
+    emphasizeSummary: showReinstallSaveReminder,
+  });
+
+  if (flashReinstallSaveReminder) {
+    triggerConfigStatusFlash();
+  }
 }
 
 function setConfigStatusTone(tone) {
   configStatus.classList.remove(...CONFIG_STATUS_TONE_CLASSES);
   configStatus.classList.add(`is-${tone}`);
+}
+
+function setConfigStatusFlags(options = {}) {
+  configStatus.classList.remove(...CONFIG_STATUS_FLAG_CLASSES);
+  if (!options.reinstallSaveReminder) {
+    configStatus.classList.remove(CONFIG_STATUS_FLASH_CLASS);
+  }
+
+  if (options.reinstallSaveReminder) {
+    configStatus.classList.add("is-reinstall-save-reminder");
+  }
+}
+
+function renderConfigStatusText(message, summary, options = {}) {
+  configStatus.textContent = "";
+
+  if (!summary) {
+    configStatus.textContent = message;
+    return;
+  }
+
+  const messageText = document.createElement("span");
+  messageText.textContent = message;
+
+  const summaryText = document.createElement(options.emphasizeSummary ? "strong" : "span");
+  summaryText.textContent = summary;
+  if (options.emphasizeSummary) {
+    summaryText.className = "config-status-reminder";
+  }
+
+  configStatus.append(messageText, document.createElement("br"), summaryText);
+}
+
+function handleConfigStatusAnimationEnd(event) {
+  if (event.animationName === "config-save-reminder-flash") {
+    configStatus.classList.remove(CONFIG_STATUS_FLASH_CLASS);
+  }
+}
+
+function triggerConfigStatusFlash() {
+  if (configStatusFlashFrame !== null) {
+    window.cancelAnimationFrame(configStatusFlashFrame);
+  }
+
+  configStatus.classList.remove(CONFIG_STATUS_FLASH_CLASS);
+  configStatusFlashFrame = window.requestAnimationFrame(() => {
+    configStatusFlashFrame = window.requestAnimationFrame(() => {
+      configStatusFlashFrame = null;
+      if (configStatus.classList.contains("is-reinstall-save-reminder")) {
+        configStatus.classList.add(CONFIG_STATUS_FLASH_CLASS);
+      }
+    });
+  });
 }
 
 function renderConfigEditor() {

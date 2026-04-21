@@ -6,6 +6,10 @@ export function configDraftsEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function mergeConfigDefaults(defaultConfigs, preservedConfigs) {
+  return mergeConfigValue(defaultConfigs, preservedConfigs);
+}
+
 export function getValueAtPath(target, path) {
   let current = target;
   for (const segment of path) {
@@ -171,4 +175,37 @@ function isContainer(value) {
 
 function isPrimitive(value) {
   return value === null || typeof value !== "object";
+}
+
+function mergeConfigValue(defaultValue, preservedValue) {
+  if (typeof preservedValue === "undefined") {
+    return cloneConfigValue(defaultValue);
+  }
+
+  if (isContainer(defaultValue)) {
+    if (!isContainer(preservedValue)) {
+      return cloneConfigValue(defaultValue);
+    }
+
+    const merged = {};
+    for (const [key, value] of Object.entries(defaultValue)) {
+      merged[key] = Object.prototype.hasOwnProperty.call(preservedValue, key)
+        ? mergeConfigValue(value, preservedValue[key])
+        : cloneConfigValue(value);
+    }
+
+    for (const [key, value] of Object.entries(preservedValue)) {
+      if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+        merged[key] = cloneConfigValue(value);
+      }
+    }
+
+    return merged;
+  }
+
+  return cloneConfigValue(preservedValue);
+}
+
+function cloneConfigValue(value) {
+  return typeof value === "undefined" ? undefined : cloneConfigSet(value);
 }

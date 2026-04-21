@@ -54,3 +54,17 @@ test("createTranslator includes cache-only provider copy", () => {
     "새 번역 요청을 비활성화하고 translation-cache.log만 사용합니다.",
   );
 });
+
+test("createTranslator includes reinstall save reminder localization", () => {
+  const en = createTranslator("en-US");
+  const ko = createTranslator("ko-KR");
+
+  assert.equal(
+    en("config.status.reinstallPreserved"),
+    "Action required: click Save Config now. Reinstall restored the files on disk, and your preserved session settings are not written back yet.",
+  );
+  assert.equal(
+    ko("config.status.reinstallPreserved"),
+    "작업 필요: 지금 설정 저장을 클릭하세요. 재설치로 디스크의 설정 파일이 복원되었고, 보존된 세션 설정은 아직 다시 저장되지 않았습니다.",
+  );
+});
