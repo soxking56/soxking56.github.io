@@ -185,11 +185,11 @@ button:disabled {
 
 .config-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin-left: auto;
   flex: 0 0 auto;
-  justify-content: flex-end;
+  min-width: 144px;
   align-self: flex-start;
 }
 
