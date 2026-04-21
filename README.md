@@ -2,6 +2,8 @@
 
 This is an alternative web-based installer for a RPG MV/MZ Translator plugin. Normally, users would invoke installer.ps1 to install the script. 
 
+The actual translator project lives here: [RPG-Maker-Live-Translator](https://github.com/nt7011/RPG-Maker-Live-Translator).
+
 ## What it does
 
 - Detects RPG Maker folder layouts using either `js/plugins` or `www/js/plugins`

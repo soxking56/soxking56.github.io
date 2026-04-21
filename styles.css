@@ -79,7 +79,8 @@ h3 {
 .intro {
   margin-top: 12px;
   color: var(--muted);
-  max-width: 60ch;
+  max-width: 100%;
+  text-wrap: pretty;
 }
 
 .version-note {
