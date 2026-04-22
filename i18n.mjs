@@ -2,7 +2,7 @@ export const DEFAULT_LOCALE = "en";
 
 const STRINGS = Object.freeze({
   en: Object.freeze({
-    "document.title": "RPG Translator Installer",
+    "document.title": "RPG Maker MV/MZ Live Translator",
     "page.eyebrow": "Browser installer",
     "page.heading": "RPG Maker MV/MZ Live Translator",
     "page.intro": "Choose the game folder and install the <a href=\"https://github.com/nt7011/RPG-Maker-Live-Translator\" target=\"_blank\" rel=\"noopener noreferrer\">translator plugin</a> directly from the browser.",
