@@ -610,15 +610,18 @@
                     );
                     if (isMessageWin) {
                         const msgText = node._trStreamText || node._trWrappedMessageText;
-                        if (msgText) {
-                            if (translationEnabled) {
+                        if (translationEnabled) {
+                            if (msgText) {
                                 redrawGameMessageText(node, msgText);
-                            } else {
-                                // Show original resolved text
-                                const origText = node._trOriginalResolvedText;
-                                if (origText) {
-                                    redrawGameMessageText(node, origText);
-                                }
+                            }
+                        } else {
+                            const origText = node._trOriginalResolvedText;
+                            if (origText) {
+                                // Save and restore _trWrappedMessageText so the translated
+                                // text survives and can be re-shown when toggling back ON
+                                const savedWrapped = node._trWrappedMessageText;
+                                redrawGameMessageText(node, origText);
+                                node._trWrappedMessageText = savedWrapped;
                             }
                         }
                     } else if (typeof node.refresh === 'function') {
