@@ -574,16 +574,45 @@
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // F8 toggle: show original / translated text
+    // F7 toggle: show original / translated text (F7 = keyCode 118)
     let translationEnabled = true;
     if (typeof window !== 'undefined') {
         window.LiveTranslatorEnabled = true;
-        window.addEventListener('keydown', (e) => {
-            if (e.key !== 'F8') return;
+
+        const onToggleKey = () => {
             translationEnabled = !translationEnabled;
             window.LiveTranslatorEnabled = translationEnabled;
-            logger.info(`[Toggle] Translation ${translationEnabled ? 'ON' : 'OFF (showing original)'}`);
-        });
+            logger.info(`[Toggle] Translation ${translationEnabled ? 'ON (translated)' : 'OFF (original)'}`);
+        };
+
+        // capture:true fires before RPG Maker's bubbling handlers
+        document.addEventListener('keydown', (e) => {
+            if (e.keyCode === 118 || e.key === 'F7') {
+                e.stopPropagation();
+                onToggleKey();
+            }
+        }, true);
+
+        // Fallback: hook Input._onKeyDown which RPG Maker registers separately
+        const installInputHook = () => {
+            if (typeof Input === 'undefined') return false;
+            if (Input._onKeyDown && !Input._onKeyDown.__trToggleWrapped) {
+                const orig = Input._onKeyDown.bind(Input);
+                Input._onKeyDown = function(event) {
+                    if (event && (event.keyCode === 118 || event.key === 'F7')) onToggleKey();
+                    return orig(event);
+                };
+                Input._onKeyDown.__trToggleWrapped = true;
+            }
+            return true;
+        };
+
+        if (!installInputHook()) {
+            const t = setInterval(() => { if (installInputHook()) clearInterval(t); }, 300);
+        }
+
+        // Console helper: window.toggleTranslation() in DevTools
+        window.toggleTranslation = onToggleKey;
     }
 
     window.addEventListener('load', () => {
