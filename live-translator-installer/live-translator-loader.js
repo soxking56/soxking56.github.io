@@ -9,6 +9,7 @@
         'disk-cache.js',
         'window-draw-hooks.js',
         'translation-manager.js',
+        'look-ahead-prefetcher.js',
         'text-replacement-addon.js',
     ];
     const SUPPORT_FILES = ['translator.json', 'settings.json'];

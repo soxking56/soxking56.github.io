@@ -544,17 +544,53 @@
         dbg(`[DiskCache] Loaded ${records.length} records`);
     }
 
+    // ── Look-ahead prefetcher ─────────────────────────────────────────────────
+    let lookAheadPrefetcher = null;
+
+    function startLookAheadPrefetcher() {
+        try {
+            const factory = (typeof globalThis !== 'undefined' && globalThis.LiveTranslatorModules)
+                ? globalThis.LiveTranslatorModules.createLookAheadPrefetcher
+                : (typeof window !== 'undefined' && window.LiveTranslatorModules
+                    ? window.LiveTranslatorModules.createLookAheadPrefetcher
+                    : null);
+
+            if (typeof factory !== 'function') {
+                logger.warn('[LookAheadPrefetcher] Module not found; background pre-translation disabled.');
+                return;
+            }
+
+            lookAheadPrefetcher = factory({
+                translationCache,
+                stripRpgmEscapes,
+                logger,
+                settings: cachedSettings,
+            });
+
+            lookAheadPrefetcher.start();
+        } catch (err) {
+            logger.warn('[LookAheadPrefetcher] Failed to start:', err);
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     window.addEventListener('load', () => {
         hydrateCache()
             .catch((e) => logger.error('[DiskCache Hydrate Error]', e))
-            .finally(() => scheduleInitialization(0));
+            .finally(() => {
+                scheduleInitialization(0);
+                startLookAheadPrefetcher();
+            });
     });
-    
+
     // Also try immediate initialization in case window.load already fired
     if (document.readyState === 'complete') {
         hydrateCache()
             .catch((e) => logger.error('[DiskCache Hydrate Error]', e))
-            .finally(() => scheduleInitialization(0));
+            .finally(() => {
+                scheduleInitialization(0);
+                startLookAheadPrefetcher();
+            });
     }
 
 })();
