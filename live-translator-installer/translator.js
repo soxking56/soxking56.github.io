@@ -35,23 +35,23 @@
             if (TRANSLATOR_CONFIG.provider === 'none') {
                 return String(text ?? '');
             }
-            if (TRANSLATOR_CONFIG.provider !== 'local' && TRANSLATOR_CONFIG.provider !== 'ollama') {
+            if (TRANSLATOR_CONFIG.provider === 'ollama') {
+                return translateOneOllamaStream(String(text), TRANSLATOR_CONFIG.settings.ollama, options);
+            }
+            if (TRANSLATOR_CONFIG.provider !== 'local') {
                 throw new Error('Streaming translation is only supported for the local provider.');
             }
-            const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
-                ? TRANSLATOR_CONFIG.settings.ollama
-                : TRANSLATOR_CONFIG.settings.local;
-            return translateOneLocalStream(String(text), localCfg, options);
+            return translateOneLocalStream(String(text), TRANSLATOR_CONFIG.settings.local, options);
         },
 
         async validateConfiguredLocalModel() {
-            if (TRANSLATOR_CONFIG.provider !== 'local' && TRANSLATOR_CONFIG.provider !== 'ollama') {
+            if (TRANSLATOR_CONFIG.provider === 'ollama') {
+                return resolveOllamaModel(TRANSLATOR_CONFIG.settings.ollama);
+            }
+            if (TRANSLATOR_CONFIG.provider !== 'local') {
                 return null;
             }
-            const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
-                ? TRANSLATOR_CONFIG.settings.ollama
-                : TRANSLATOR_CONFIG.settings.local;
-            return resolveLocalChatModelSelection(localCfg);
+            return resolveLocalChatModelSelection(TRANSLATOR_CONFIG.settings.local);
         },
 
         async translateMany(texts, targetLang = null) {
@@ -61,12 +61,13 @@
                     return items.map((t) => String(t));
                 }
 
+                if (TRANSLATOR_CONFIG.provider === 'ollama') {
+                    return Promise.all(items.map((t) => translateOneOllama(String(t), TRANSLATOR_CONFIG.settings.ollama)));
+                }
+
                 // For local LLM, map single-item path directly
-                if (TRANSLATOR_CONFIG.provider === 'local' || TRANSLATOR_CONFIG.provider === 'ollama') {
-                    const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
-                        ? TRANSLATOR_CONFIG.settings.ollama
-                        : TRANSLATOR_CONFIG.settings.local;
-                    return Promise.all(items.map((t) => translateOneLocal(String(t), localCfg)));
+                if (TRANSLATOR_CONFIG.provider === 'local') {
+                    return Promise.all(items.map((t) => translateOneLocal(String(t), TRANSLATOR_CONFIG.settings.local)));
                 }
 
                 // DeepL batch path (preferred)
@@ -574,6 +575,197 @@
         const messages = output.filter((item) => item && item.type === 'message' && typeof item.content === 'string');
         return messages.map((item) => item.content).join('');
     }
+
+    // ── Ollama implementation ─────────────────────────────────────────────────
+
+    function getOllamaApiBaseUrl(cfg) {
+        return `http://${cfg.address}:${cfg.port}`;
+    }
+
+    async function resolveOllamaModel(cfg) {
+        const configuredModel = typeof cfg.model === 'string' ? cfg.model.trim() : '';
+        const url = `${getOllamaApiBaseUrl(cfg)}/api/tags`;
+        let resp;
+        try {
+            resp = await fetch(url, { method: 'GET' });
+        } catch (e) {
+            throw new Error(`Ollama model list request failed: ${e && e.message ? e.message : e}`);
+        }
+        if (!resp || !resp.ok) {
+            const status = resp ? `${resp.status} ${resp.statusText}` : 'no response';
+            throw new Error(`Ollama model list error: ${status}`);
+        }
+        const data = await resp.json();
+        const models = Array.isArray(data && data.models) ? data.models : [];
+        const names = models.map((m) => (m && typeof m.name === 'string' ? m.name.trim() : '')).filter(Boolean);
+
+        if (configuredModel.toLowerCase() === 'auto') {
+            if (names.length !== 1) {
+                throw new Error(
+                    `settings.ollama.model is "auto", but Ollama has ${names.length} available model(s): `
+                    + (names.length ? names.join(', ') : 'none') + '. Set settings.ollama.model to a specific model name.'
+                );
+            }
+            return names[0];
+        }
+
+        const matched = names.find((n) => n === configuredModel || n.startsWith(configuredModel + ':'));
+        if (!matched) {
+            throw new Error(`Configured ollama model "${configuredModel}" was not found. Available: ${names.join(', ') || 'none'}.`);
+        }
+        return matched;
+    }
+
+    function buildOllamaChatBody(sourceText, cfg, modelName, stream) {
+        const systemPrompt = typeof cfg.system_prompt === 'string' ? cfg.system_prompt : '';
+        const messages = [];
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+        messages.push({ role: 'user', content: sourceText });
+
+        const options = {};
+        if (Number.isFinite(cfg.temperature)) options.temperature = cfg.temperature;
+        if (Number.isFinite(cfg.top_p)) options.top_p = cfg.top_p;
+        if (Number.isFinite(cfg.top_k)) options.top_k = cfg.top_k;
+        if (Number.isFinite(cfg.min_p)) options.min_p = cfg.min_p;
+        if (Number.isFinite(cfg.repeat_penalty)) options.repeat_penalty = cfg.repeat_penalty;
+        if (Number.isFinite(cfg.max_output_tokens)) options.num_predict = cfg.max_output_tokens;
+
+        const body = { model: modelName, messages, stream: !!stream };
+        if (Object.keys(options).length) body.options = options;
+        return body;
+    }
+
+    async function translateOneOllama(text, cfg) {
+        const sourceText = String(text ?? '');
+        const lines = sourceText.split(/\r?\n/);
+
+        if (cfg && cfg.separate_multiline_requests && lines.length > 1) {
+            const perLine = await Promise.all(lines.map((line) => {
+                if (!line) return '';
+                return translateOneOllama(line, { ...cfg, separate_multiline_requests: false });
+            }));
+            return perLine.join('\n');
+        }
+
+        const modelName = await resolveOllamaModel(cfg);
+        const body = buildOllamaChatBody(sourceText, cfg, modelName, false);
+        let resp;
+        try {
+            resp = await fetch(`${getOllamaApiBaseUrl(cfg)}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        } catch (e) {
+            throw new Error(`Ollama request failed: ${e && e.message ? e.message : e}`);
+        }
+        if (!resp || !resp.ok) {
+            const status = resp ? `${resp.status} ${resp.statusText}` : 'no response';
+            throw new Error(`Ollama error: ${status}`);
+        }
+        const data = await resp.json();
+        const content = data && data.message && typeof data.message.content === 'string'
+            ? data.message.content
+            : '';
+        return parseLocalTextOutput(content);
+    }
+
+    async function translateOneOllamaStream(text, cfg, options = {}) {
+        const sourceText = String(text ?? '');
+        const lines = sourceText.split(/\r?\n/);
+        const onDelta = typeof options.onDelta === 'function' ? options.onDelta : null;
+        const signal = options.signal;
+
+        if (cfg && cfg.separate_multiline_requests && lines.length > 1) {
+            const outputs = new Array(lines.length);
+            const tasks = lines.map((line, idx) => {
+                if (!line) {
+                    outputs[idx] = '';
+                    return Promise.resolve('');
+                }
+                return translateOneOllamaStream(line, { ...cfg, separate_multiline_requests: false }, {
+                    signal,
+                    onDelta: (partial) => {
+                        outputs[idx] = partial || '';
+                        if (onDelta) onDelta(outputs.join('\n'));
+                    }
+                }).then((finalLine) => {
+                    outputs[idx] = finalLine || '';
+                    return finalLine;
+                });
+            });
+            const finalLines = await Promise.all(tasks);
+            return finalLines.join('\n');
+        }
+
+        const modelName = await resolveOllamaModel(cfg);
+        const body = buildOllamaChatBody(sourceText, cfg, modelName, true);
+        let resp;
+        try {
+            resp = await fetch(`${getOllamaApiBaseUrl(cfg)}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal
+            });
+        } catch (e) {
+            const abortError = coerceAbortError(e);
+            if (abortError) throw abortError;
+            throw new Error(`Ollama request failed: ${e && e.message ? e.message : e}`);
+        }
+        if (!resp || !resp.ok) {
+            const status = resp ? `${resp.status} ${resp.statusText}` : 'no response';
+            throw new Error(`Ollama error: ${status}`);
+        }
+        if (!resp.body || typeof resp.body.getReader !== 'function') {
+            throw new Error('Ollama streaming unavailable: response body missing.');
+        }
+
+        const decoder = new TextDecoder('utf-8');
+        const reader = resp.body.getReader();
+        const thinkStripper = createThinkBlockStripper();
+        let accumulatedMessage = '';
+        let lastPartial = '';
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const nlIdx = buffer.lastIndexOf('\n');
+                if (nlIdx === -1) continue;
+                const lines = buffer.slice(0, nlIdx + 1).split('\n');
+                buffer = buffer.slice(nlIdx + 1);
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    let obj;
+                    try { obj = JSON.parse(trimmed); } catch (_) { continue; }
+                    if (obj && obj.message && typeof obj.message.content === 'string') {
+                        const cleaned = thinkStripper.feed(obj.message.content);
+                        if (cleaned) {
+                            accumulatedMessage += cleaned;
+                            if (onDelta && accumulatedMessage !== lastPartial) {
+                                lastPartial = accumulatedMessage;
+                                onDelta(accumulatedMessage);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            const abortError = coerceAbortError(e);
+            if (abortError) throw abortError;
+            throw e;
+        } finally {
+            try { reader.releaseLock(); } catch (_) {}
+        }
+
+        return parseLocalTextOutput(accumulatedMessage);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     function parseLocalTextOutput(content) {
         try {
