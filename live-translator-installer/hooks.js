@@ -1120,6 +1120,11 @@
 
                     stopStreamLoop(true);
                     dbg(`[GameMessage] Translation: "${preview(payload.visible)}" -> "${preview(restoredVisible)}"`);
+                    // Always cache the translation so F7 toggle-back can restore it,
+                    // even if translation display is currently OFF.
+                    if (this._trSessionId === sessionId) {
+                        this._trWrappedMessageText = restored;
+                    }
                     if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                     redrawMessageText(this, restored, sessionId);
                 })
