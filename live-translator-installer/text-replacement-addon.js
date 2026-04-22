@@ -506,7 +506,8 @@
             Window_Message.prototype.update = function() {
                 const r = _origMsgUpdate.call(this);
                 try {
-                    if (this._trStreamLoopActive
+                    const translationOn = typeof window === 'undefined' || window.LiveTranslatorEnabled !== false;
+                    if (translationOn && this._trStreamLoopActive
                         && this._trStreamSessionId
                         && this._trStreamSessionId === this._trSessionId
                         && typeof this._trStreamText === 'string'
@@ -517,7 +518,7 @@
                         redrawGameMessageText(this, this._trStreamText, { streaming: true });
                     }
                     const pending = this._trPendingRedraw;
-                    if (pending && this.visible && this.isOpen() && this.contents) {
+                    if (translationOn && pending && this.visible && this.isOpen() && this.contents) {
                         if (this._trSessionId === pending.sessionId) {
                             redrawGameMessageText(this, pending.text, pending);
                         }

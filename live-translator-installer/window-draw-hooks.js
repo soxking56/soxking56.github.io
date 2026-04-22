@@ -274,7 +274,6 @@
         }
 
         function addTextToWindowData(window, windowData, text, x, y, type = null, convertedText = null, originalParams = null) {
-            if (typeof globalScope !== 'undefined' && globalScope.LiveTranslatorEnabled === false) return;
 
             const textToTranslate = convertedText || text;
             const textKey = generateKey(type, x, y, windowData.windowType, textToTranslate);
@@ -415,6 +414,7 @@
 
         function redrawTranslatedText(textEntry, windowData) {
             if (textEntry._trStale) return;
+            if (typeof globalScope !== 'undefined' && globalScope.LiveTranslatorEnabled === false) return;
             try {
                 let targetWindow = null;
                 registeredWindows.forEach((window) => {

@@ -969,7 +969,6 @@
 
         // Process complete message text for translation
         Window_Message.prototype.processCompleteMessage = function(message, sessionId) {
-            if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
 
             const payload = (message && typeof message === 'object' && ('resolved' in message || 'visible' in message))
                 ? message
@@ -1078,6 +1077,7 @@
 
                     stopStreamLoop(true);
                     dbg(`[GameMessage] Translation: "${preview(payload.visible)}" -> "${preview(restoredVisible)}"`);
+                    if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                     redrawMessageText(this, restored, sessionId);
                 })
                 .catch(err => {
@@ -1166,7 +1166,6 @@
         Window_ChoiceList.prototype.makeCommandList = function() {
             const result = originalMakeCommandList.call(this);
             try {
-                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return result;
                 if (!translationCache || typeof translationCache.requestTranslation !== 'function') {
                     return result;
                 }
@@ -1199,6 +1198,7 @@
 
                     const applyTranslated = (translated) => {
                         if (choiceWindow._trChoiceSessionId !== sessionId) return;
+                        if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                         if (typeof translated !== 'string' || !translated.trim()) return;
 
                         let restored = restoreControlCodes(translated, placeholderInfo, converted);
@@ -1292,10 +1292,6 @@
                                 return originalSetter.call(this, clean);
                             }
 
-                            if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
-                                return originalSetter.call(this, textStr);
-                            }
-
                             // Skip trivial strings (numbers, whitespace, symbols only)
                             if (translationCache.shouldSkip(textStr)) {
                                 return originalSetter.call(this, textStr);
@@ -1311,6 +1307,9 @@
                             // Synchronous cache hit path
                             try {
                                 if (translationCache.completed.has(norm)) {
+                                    if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
+                                        return originalSetter.call(this, textStr);
+                                    }
                                     let translated = translationCache.completed.get(norm);
                                     translated = placeholderInfo
                                         ? restoreControlCodes(translated, placeholderInfo, textStr)
@@ -1335,6 +1334,7 @@
                                 .then(translated => {
                                     try {
                                         if (this._trTextVersion !== version) return; // superseded
+                                        if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                                         // Skip replacement if original and translated text are the same
                                         let restored = versionPlaceholder
                                             ? restoreControlCodes(translated, versionPlaceholder, originalValue)
@@ -2511,8 +2511,6 @@
                 const state = bitmapStates.get(entry.bitmap);
                 if (!state || state.entries.get(entry.key) !== entry) return;
 
-                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
-
                 try {
                     if (translationCache.completed.has(entry.normalizedSource)) {
                         const translated = translationCache.completed.get(entry.normalizedSource);
@@ -2627,6 +2625,7 @@
 
             const applyBitmapTranslation = (entry, translated, source, expectedInstanceId = null) => {
                 if (!entry || entry._trStale) return;
+                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                 if (expectedInstanceId && entry.instanceId !== expectedInstanceId) {
                     diag(`[bitmap/skip-uuid] ${describeBitmap(entry.bitmap)} ${describeEntry(entry)} expected=${expectedInstanceId} text="${preview(entry.trimmedText)}"`);
                     return;
@@ -2873,10 +2872,6 @@
                         return originalSetText.call(this, clean);
                     }
 
-                    if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
-                        return originalSetText.call(this, textStr);
-                    }
-
                     // Prefer translating after escape conversion for better context
                     let converted = textStr;
                     try { converted = this.convertEscapeCharacters(textStr); } catch (_) {}
@@ -2891,6 +2886,9 @@
                     // Cache hit: apply translated immediately
                     try {
                         if (translationCache.completed.has(norm)) {
+                            if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
+                                return originalSetText.call(this, textStr);
+                            }
                             let translated = translationCache.completed.get(norm);
                             translated = restoreControlCodes(translated, placeholderInfo, converted || textStr);
                             // Skip replacement if original and translated text are the same
@@ -2912,6 +2910,7 @@
                         .then(translated => {
                             try {
                                 if (self._trHelpVersion !== version) return; // superseded by newer setText
+                                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
                                 // Skip replacement if original and translated text are the same
                                 let restored = restoreControlCodes(translated, placeholderInfo, converted || textStr);
                                 if (typeof restored !== 'string' || restored.trim() === (converted || '').trim()) {
