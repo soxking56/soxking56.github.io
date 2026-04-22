@@ -273,6 +273,13 @@
             } else if (!local.model || typeof local.model !== 'string' || !local.model.trim()) {
                 logger.warn('[LiveTranslator][Config] translator.json missing "settings.local.model"; local LLM requests will fail.');
             }
+        } else if (provider === 'ollama') {
+            const ollama = cfg.settings.ollama;
+            if (!ollama || typeof ollama !== 'object') {
+                throw new Error('[LiveTranslator][Config] translator.json missing "settings.ollama" object for ollama provider.');
+            } else if (!ollama.model || typeof ollama.model !== 'string' || !ollama.model.trim()) {
+                logger.warn('[LiveTranslator][Config] translator.json missing "settings.ollama.model"; ollama LLM requests will fail.');
+            }
         } else if (provider === 'none') {
             // Cache-only mode intentionally skips external provider validation.
         } else {
@@ -362,7 +369,8 @@
                 logger.debug(`[LiveTranslatorLoader] Loaded script ${script}`);
                 if (script === 'translator.js'
                     && window.LiveTranslatorConfig
-                    && String(window.LiveTranslatorConfig.provider || '').trim().toLowerCase() === 'local'
+                    && (String(window.LiveTranslatorConfig.provider || '').trim().toLowerCase() === 'local'
+                        || String(window.LiveTranslatorConfig.provider || '').trim().toLowerCase() === 'ollama')
                     && window.TextProcessor
                     && typeof window.TextProcessor.validateConfiguredLocalModel === 'function') {
                     await window.TextProcessor.validateConfiguredLocalModel();

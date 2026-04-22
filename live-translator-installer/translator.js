@@ -35,17 +35,23 @@
             if (TRANSLATOR_CONFIG.provider === 'none') {
                 return String(text ?? '');
             }
-            if (TRANSLATOR_CONFIG.provider !== 'local') {
+            if (TRANSLATOR_CONFIG.provider !== 'local' && TRANSLATOR_CONFIG.provider !== 'ollama') {
                 throw new Error('Streaming translation is only supported for the local provider.');
             }
-            return translateOneLocalStream(String(text), TRANSLATOR_CONFIG.settings.local, options);
+            const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
+                ? TRANSLATOR_CONFIG.settings.ollama
+                : TRANSLATOR_CONFIG.settings.local;
+            return translateOneLocalStream(String(text), localCfg, options);
         },
 
         async validateConfiguredLocalModel() {
-            if (TRANSLATOR_CONFIG.provider !== 'local') {
+            if (TRANSLATOR_CONFIG.provider !== 'local' && TRANSLATOR_CONFIG.provider !== 'ollama') {
                 return null;
             }
-            return resolveLocalChatModelSelection(TRANSLATOR_CONFIG.settings.local);
+            const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
+                ? TRANSLATOR_CONFIG.settings.ollama
+                : TRANSLATOR_CONFIG.settings.local;
+            return resolveLocalChatModelSelection(localCfg);
         },
 
         async translateMany(texts, targetLang = null) {
@@ -56,8 +62,11 @@
                 }
 
                 // For local LLM, map single-item path directly
-                if (TRANSLATOR_CONFIG.provider === 'local') {
-                    return Promise.all(items.map((t) => translateOneLocal(String(t), TRANSLATOR_CONFIG.settings.local)));
+                if (TRANSLATOR_CONFIG.provider === 'local' || TRANSLATOR_CONFIG.provider === 'ollama') {
+                    const localCfg = TRANSLATOR_CONFIG.provider === 'ollama'
+                        ? TRANSLATOR_CONFIG.settings.ollama
+                        : TRANSLATOR_CONFIG.settings.local;
+                    return Promise.all(items.map((t) => translateOneLocal(String(t), localCfg)));
                 }
 
                 // DeepL batch path (preferred)
@@ -94,10 +103,12 @@
         return key;
     }
 
-    function normalizeLocalConfig(cfg) {
+    function normalizeLocalConfig(cfg, defaults = {}) {
+        const defaultAddress = defaults.address || '127.0.0.1';
+        const defaultPort = defaults.port || 1234;
         const out = {
-            address: cfg.Address || cfg.address || '127.0.0.1',
-            port: Number(cfg.port || cfg.Port || 1234),
+            address: cfg.Address || cfg.address || defaultAddress,
+            port: Number(cfg.port || cfg.Port || defaultPort),
             model: cfg.model || cfg.Model || null,
             system_prompt: cfg.system_prompt || cfg.systemPrompt || cfg.SystemPrompt || '',
             temperature: valueOrDefault(cfg.temperature || cfg.Temperature, 0.2),
@@ -677,7 +688,12 @@
             if (!settings.local || typeof settings.local !== 'object') {
                 throw new Error('translator.json missing required "settings.local" section for local provider.');
             }
-            config.settings.local = normalizeLocalConfig(settings.local);
+            config.settings.local = normalizeLocalConfig(settings.local, { address: '127.0.0.1', port: 1234 });
+        } else if (provider === 'ollama') {
+            if (!settings.ollama || typeof settings.ollama !== 'object') {
+                throw new Error('translator.json missing required "settings.ollama" section for ollama provider.');
+            }
+            config.settings.ollama = normalizeLocalConfig(settings.ollama, { address: '127.0.0.1', port: 11434 });
         } else if (provider === 'deepl') {
             const deeplConfig = normalizeDeepLConfig(settings.deepl);
             if (!deeplConfig.apiKey) {

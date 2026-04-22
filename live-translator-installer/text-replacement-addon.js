@@ -177,7 +177,7 @@
     }
 
     const ACTIVE_PROVIDER = getActiveProvider();
-    const USING_LOCAL_PROVIDER = ACTIVE_PROVIDER === 'local';
+    const USING_LOCAL_PROVIDER = ACTIVE_PROVIDER === 'local' || ACTIVE_PROVIDER === 'ollama';
     const USING_CACHE_ONLY_PROVIDER = ACTIVE_PROVIDER === 'none';
 
     localProviderBypassFlag = USING_LOCAL_PROVIDER === true;

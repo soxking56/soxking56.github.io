@@ -123,6 +123,72 @@ const LOCAL_TRANSLATOR_FIELDS = [
   },
 ];
 
+const OLLAMA_TRANSLATOR_FIELDS = [
+  {
+    id: "settings.ollama.address",
+    path: ["settings", "ollama", "address"],
+    inputKind: "text",
+    label: "address",
+    tooltipKey: "field.ollama.address.tooltip",
+  },
+  {
+    id: "settings.ollama.port",
+    path: ["settings", "ollama", "port"],
+    inputKind: "number",
+    label: "port",
+    tooltipKey: "field.ollama.port.tooltip",
+  },
+  {
+    id: "settings.ollama.model",
+    path: ["settings", "ollama", "model"],
+    inputKind: "text",
+    label: "model",
+    tooltipKey: "field.ollama.model.tooltip",
+  },
+  {
+    id: "settings.ollama.system_prompt",
+    path: ["settings", "ollama", "system_prompt"],
+    inputKind: "textarea",
+    label: "system_prompt",
+    tooltipKey: "field.ollama.systemPrompt.tooltip",
+  },
+  {
+    id: "settings.ollama.temperature",
+    path: ["settings", "ollama", "temperature"],
+    inputKind: "number",
+    label: "temperature",
+    tooltipKey: "field.ollama.temperature.tooltip",
+  },
+  {
+    id: "settings.ollama.top_p",
+    path: ["settings", "ollama", "top_p"],
+    inputKind: "number",
+    label: "top_p",
+    tooltipKey: "field.ollama.topP.tooltip",
+  },
+  {
+    id: "settings.ollama.top_k",
+    path: ["settings", "ollama", "top_k"],
+    inputKind: "number",
+    label: "top_k",
+    tooltipKey: "field.ollama.topK.tooltip",
+  },
+  {
+    id: "settings.ollama.min_p",
+    path: ["settings", "ollama", "min_p"],
+    inputKind: "number",
+    label: "min_p",
+    tooltipKey: "field.ollama.minP.tooltip",
+  },
+  {
+    id: "settings.ollama.repeat_penalty",
+    path: ["settings", "ollama", "repeat_penalty"],
+    inputKind: "number",
+    label: "repeat_penalty",
+    tooltipKey: "field.ollama.repeatPenalty.tooltip",
+  },
+];
+
 const DEEPL_TRANSLATOR_FIELDS = [
   {
     id: "settings.deepl.language",
@@ -809,15 +875,19 @@ function renderTranslatorConfig(container, config) {
 
   const settingsSection = document.createElement("section");
   settingsSection.className = "config-group";
-  if (provider === "local") {
+  if (provider === "local" || provider === "ollama") {
     settingsSection.classList.add("local-settings-group");
   }
 
   const settingsHeading = document.createElement("h4");
   settingsHeading.className = "config-group-title";
-  settingsHeading.textContent = provider === "deepl"
-    ? t("config.section.deeplSettings")
-    : t("config.section.localSettings");
+  if (provider === "deepl") {
+    settingsHeading.textContent = t("config.section.deeplSettings");
+  } else if (provider === "ollama") {
+    settingsHeading.textContent = t("config.section.ollamaSettings");
+  } else {
+    settingsHeading.textContent = t("config.section.localSettings");
+  }
   settingsSection.append(settingsHeading);
 
   if (provider === "local") {
@@ -825,15 +895,24 @@ function renderTranslatorConfig(container, config) {
     settingsNote.className = "config-group-note";
     settingsNote.textContent = t("config.section.localSettings.note");
     settingsSection.append(settingsNote);
+  } else if (provider === "ollama") {
+    const settingsNote = document.createElement("p");
+    settingsNote.className = "config-group-note";
+    settingsNote.textContent = t("config.section.ollamaSettings.note");
+    settingsSection.append(settingsNote);
   }
 
   const fieldGrid = document.createElement("div");
   fieldGrid.className = "config-field-grid";
-  if (provider === "local") {
+  if (provider === "local" || provider === "ollama") {
     fieldGrid.classList.add("local-settings-grid");
   }
 
-  const activeFields = provider === "deepl" ? DEEPL_TRANSLATOR_FIELDS : LOCAL_TRANSLATOR_FIELDS;
+  const activeFields = provider === "deepl"
+    ? DEEPL_TRANSLATOR_FIELDS
+    : provider === "ollama"
+      ? OLLAMA_TRANSLATOR_FIELDS
+      : LOCAL_TRANSLATOR_FIELDS;
   for (const field of activeFields) {
     fieldGrid.append(
       buildFieldInput(
@@ -855,6 +934,7 @@ function buildProviderToggle(config) {
 
   for (const option of [
     { value: "local", label: "local", tooltipKey: "provider.local.tooltip" },
+    { value: "ollama", label: "ollama", tooltipKey: "provider.ollama.tooltip" },
     { value: "deepl", label: "deepl", tooltipKey: "provider.deepl.tooltip" },
     { value: "none", label: "none", tooltipKey: "provider.none.tooltip" },
   ]) {
@@ -1164,7 +1244,7 @@ function hasExistingInstallation() {
 
 function getSelectedProvider(config) {
   const provider = String(getValueAtPath(config, ["provider"]) ?? "").trim().toLowerCase();
-  if (provider === "deepl" || provider === "local" || provider === "none") {
+  if (provider === "deepl" || provider === "local" || provider === "ollama" || provider === "none") {
     return provider;
   }
   return "local";
