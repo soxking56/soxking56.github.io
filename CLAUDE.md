@@ -80,6 +80,15 @@ text-replacement-addon.js  ← 항상 마지막
 
 ---
 
+## 새 플러그인 파일 추가 시 수정 파일
+
+새 `.js` 파일을 `live-translator-installer/`에 추가할 때 반드시 두 곳 모두 등록:
+
+1. `installer-manifest.json` → `supportFiles` 배열 (설치기가 게임 폴더로 복사하는 목록)
+2. `live-translator-installer/live-translator-loader.js` → `SUPPORT_SCRIPTS` 배열 (로드 순서)
+
+---
+
 ## 새 provider 추가 시 수정 파일
 
 1. `live-translator-installer/translator.json` — settings 섹션 추가

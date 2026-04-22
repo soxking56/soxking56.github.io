@@ -9,6 +9,7 @@
     "logger.js",
     "settings.json",
     "text-replacement-addon.js",
+    "look-ahead-prefetcher.js",
     "translation-manager.js",
     "translator.js",
     "translator.json",
