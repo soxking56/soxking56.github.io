@@ -584,7 +584,56 @@
             translationEnabled = !translationEnabled;
             window.LiveTranslatorEnabled = translationEnabled;
             logger.info(`[Toggle] Translation ${translationEnabled ? 'ON (translated)' : 'OFF (original)'}`);
+            refreshAllVisibleWindows();
         };
+
+        function refreshAllVisibleWindows() {
+            try {
+                const scene = typeof SceneManager !== 'undefined' && SceneManager._scene;
+                if (!scene) return;
+                const children = scene.children || [];
+                for (const child of children) {
+                    refreshWindowRecursive(child);
+                }
+            } catch (e) {
+                logger.warn('[Toggle Refresh Error]', e);
+            }
+        }
+
+        function refreshWindowRecursive(node) {
+            if (!node) return;
+            try {
+                if (node instanceof Window_Base && node.visible && node.contents) {
+                    const isMessageWin = node.constructor && (
+                        node.constructor.name === 'Window_Message'
+                        || node.constructor.name === 'Window_Message_Battle'
+                    );
+                    if (isMessageWin) {
+                        const msgText = node._trStreamText || node._trWrappedMessageText;
+                        if (msgText) {
+                            if (translationEnabled) {
+                                redrawGameMessageText(node, msgText);
+                            } else {
+                                // Show original resolved text
+                                const origText = node._trOriginalResolvedText;
+                                if (origText) {
+                                    redrawGameMessageText(node, origText);
+                                }
+                            }
+                        }
+                    } else if (typeof node.refresh === 'function') {
+                        node.refresh();
+                    } else {
+                        node.contents.clear();
+                        if (typeof node.drawAllItems === 'function') node.drawAllItems();
+                    }
+                }
+            } catch (_) {}
+            const children = node.children || [];
+            for (const child of children) {
+                refreshWindowRecursive(child);
+            }
+        }
 
         // capture:true fires before RPG Maker's bubbling handlers
         document.addEventListener('keydown', (e) => {

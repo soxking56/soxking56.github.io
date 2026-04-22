@@ -905,6 +905,7 @@
 
                 const rawAll = $gameMessage && $gameMessage.allText ? $gameMessage.allText() : '';
                 const resolved = typeof this.convertEscapeCharacters === 'function' ? this.convertEscapeCharacters(String(rawAll)) : String(rawAll);
+                this._trOriginalResolvedText = resolved;
                 const payload = createEscapeAwarePayload(resolved, 'start');
                 const finalText = payload ? payload.visible : stripRpgmEscapes(resolved).trim();
                 if (finalText && finalText !== gameMessageState.currentText) {

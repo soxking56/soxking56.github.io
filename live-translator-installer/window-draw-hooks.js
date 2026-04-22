@@ -681,12 +681,14 @@
                 ensureWindowRegistered(this);
                 const windowData = windowRegistry.get(this);
 
+                const translationOn = typeof globalScope === 'undefined' || globalScope.LiveTranslatorEnabled !== false;
+
                 if (trimmed) {
                     const dupKey = generateKey('drawText', x, y, windowData.windowType, trimmed);
                     const existing = windowData.texts.get(dupKey);
                     if (existing && existing.rawText === textStr && existing.convertedText === trimmed) {
                         refreshExistingTextEntry(this, existing, textStr, x, y, 'drawText', null, { maxWidth, align });
-                        if (existing.translationStatus === 'completed' && existing.translatedText) {
+                        if (translationOn && existing.translationStatus === 'completed' && existing.translatedText) {
                             const safeTranslated = sanitizeDrawTextOutput(existing.translatedText, 'drawText');
                             if (typeof safeTranslated !== 'string' || safeTranslated === trimmed) {
                                 return invokeOriginal(textStr);
@@ -716,6 +718,11 @@
 
                 const originalParams = { maxWidth, align };
                 addTextToWindowData(this, windowData, trimmed, x, y, 'drawText', null, originalParams);
+
+                if (!translationOn) {
+                    return invokeOriginal();
+                }
+
                 try {
                     const norm = inlineNorm;
                     if (norm && translationCache.completed.has(norm)) {
@@ -826,6 +833,11 @@
 
                 const originalParams = { maxWidth: Infinity, align: 'left' };
                 addTextToWindowData(this, windowData, textStr, x, y, 'drawTextEx', convertedText, originalParams);
+
+                const translationOnEx = typeof globalScope === 'undefined' || globalScope.LiveTranslatorEnabled !== false;
+                if (!translationOnEx) {
+                    return invokeOriginalDrawTextEx();
+                }
 
                 const dupKey = generateKey('drawTextEx', x, y, windowData.windowType, convertedTrimmed);
                 const existing = windowData.texts.get(dupKey);
