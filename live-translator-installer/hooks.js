@@ -650,6 +650,36 @@
         };
     }
 
+    function flushNativeGameMessageTextNoEnd(windowInstance) {
+        if (!windowInstance || !windowInstance._textState) return false;
+        const textState = windowInstance._textState;
+        windowInstance.pause = false;
+        windowInstance._waitCount = 0;
+        windowInstance._showFast = true;
+        const previousBypass = windowInstance._trBypassProcessCharacter || 0;
+        windowInstance._trBypassProcessCharacter = previousBypass + 1;
+        try {
+            while (windowInstance._textState && !windowInstance.isEndOfText(textState)) {
+                if (typeof windowInstance.needsNewPage === 'function' && windowInstance.needsNewPage(textState)) {
+                    windowInstance.newPage(textState);
+                    windowInstance._showFast = true;
+                    drawMessageFaceIfReady(windowInstance);
+                }
+                windowInstance.processCharacter(textState);
+                if (windowInstance.pause || windowInstance._waitCount > 0) {
+                    windowInstance.pause = false;
+                    windowInstance._waitCount = 0;
+                }
+            }
+            if (typeof windowInstance.flushTextState === 'function') {
+                windowInstance.flushTextState(textState);
+            }
+        } finally {
+            windowInstance._trBypassProcessCharacter = Math.max(0, (windowInstance._trBypassProcessCharacter || 1) - 1);
+        }
+        return true;
+    }
+
     function flushNativeGameMessageText(windowInstance) {
         if (!windowInstance || !windowInstance._textState) return false;
         const textState = windowInstance._textState;
@@ -722,8 +752,14 @@
 
     function redrawGameMessageText(windowInstance, text, overrides = {}) {
         if (!windowInstance || !windowInstance.contents) return false;
+        // preserveState: draw text for display only, don't touch _trWrappedMessageText
+        // or call onEndOfText (used for toggle-display-only redraws)
+        const preserveState = overrides && overrides._preserveState === true;
         if (!canUseNativeGameMessageRender(windowInstance)) {
             disposeGameMessageTextScaleScope(windowInstance);
+            if (preserveState) {
+                return redrawGameMessageTextFallback(windowInstance, text, overrides);
+            }
             return redrawGameMessageTextFallback(windowInstance, text, overrides);
         }
 
@@ -748,8 +784,14 @@
             windowInstance._trMsgStartY = typeof textState.startY === 'number'
                 ? textState.startY
                 : (typeof textState.y === 'number' ? textState.y : 0);
-            windowInstance._trWrappedMessageText = String(textState.text || text || '');
+            if (!preserveState) {
+                windowInstance._trWrappedMessageText = String(textState.text || text || '');
+            }
 
+            if (preserveState) {
+                // Flush without calling onEndOfText to avoid terminating the message
+                return flushNativeGameMessageTextNoEnd(windowInstance);
+            }
             return flushNativeGameMessageText(windowInstance);
         } catch (error) {
             disposeGameMessageTextScaleScope(windowInstance);

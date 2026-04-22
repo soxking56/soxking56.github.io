@@ -617,11 +617,9 @@
                         } else {
                             const origText = node._trOriginalResolvedText;
                             if (origText) {
-                                // Save and restore _trWrappedMessageText so the translated
-                                // text survives and can be re-shown when toggling back ON
-                                const savedWrapped = node._trWrappedMessageText;
-                                redrawGameMessageText(node, origText);
-                                node._trWrappedMessageText = savedWrapped;
+                                // _preserveState=true: renders without touching _trWrappedMessageText
+                                // or calling onEndOfText, so the translated text survives for toggle-back
+                                redrawGameMessageText(node, origText, { _preserveState: true });
                             }
                         }
                     } else if (typeof node.refresh === 'function') {
