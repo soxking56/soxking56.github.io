@@ -45,7 +45,7 @@ export function injectPluginEntry(text, entry, warningMessage = "Unable to injec
 
 export async function loadManifest(url = new URL("./installer-manifest.json", import.meta.url), options = {}) {
   const t = getTranslator(options);
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(t("core.loadManifestFailed", { status: response.status }));
   }
