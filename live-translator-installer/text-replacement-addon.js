@@ -574,6 +574,18 @@
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    // F8 toggle: show original / translated text
+    let translationEnabled = true;
+    if (typeof window !== 'undefined') {
+        window.LiveTranslatorEnabled = true;
+        window.addEventListener('keydown', (e) => {
+            if (e.key !== 'F8') return;
+            translationEnabled = !translationEnabled;
+            window.LiveTranslatorEnabled = translationEnabled;
+            logger.info(`[Toggle] Translation ${translationEnabled ? 'ON' : 'OFF (showing original)'}`);
+        });
+    }
+
     window.addEventListener('load', () => {
         hydrateCache()
             .catch((e) => logger.error('[DiskCache Hydrate Error]', e))

@@ -274,6 +274,8 @@
         }
 
         function addTextToWindowData(window, windowData, text, x, y, type = null, convertedText = null, originalParams = null) {
+            if (typeof globalScope !== 'undefined' && globalScope.LiveTranslatorEnabled === false) return;
+
             const textToTranslate = convertedText || text;
             const textKey = generateKey(type, x, y, windowData.windowType, textToTranslate);
 

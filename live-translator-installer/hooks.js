@@ -969,6 +969,8 @@
 
         // Process complete message text for translation
         Window_Message.prototype.processCompleteMessage = function(message, sessionId) {
+            if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
+
             const payload = (message && typeof message === 'object' && ('resolved' in message || 'visible' in message))
                 ? message
                 : createEscapeAwarePayload(message, 'processComplete');
@@ -1164,6 +1166,7 @@
         Window_ChoiceList.prototype.makeCommandList = function() {
             const result = originalMakeCommandList.call(this);
             try {
+                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return result;
                 if (!translationCache || typeof translationCache.requestTranslation !== 'function') {
                     return result;
                 }
@@ -1287,6 +1290,10 @@
                             if (textStr.startsWith(REDRAW_SIGNATURE)) {
                                 const clean = textStr.substring(REDRAW_SIGNATURE.length);
                                 return originalSetter.call(this, clean);
+                            }
+
+                            if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
+                                return originalSetter.call(this, textStr);
                             }
 
                             // Skip trivial strings (numbers, whitespace, symbols only)
@@ -2504,6 +2511,8 @@
                 const state = bitmapStates.get(entry.bitmap);
                 if (!state || state.entries.get(entry.key) !== entry) return;
 
+                if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) return;
+
                 try {
                     if (translationCache.completed.has(entry.normalizedSource)) {
                         const translated = translationCache.completed.get(entry.normalizedSource);
@@ -2862,6 +2871,10 @@
                     if (textStr.startsWith(REDRAW_SIGNATURE)) {
                         const clean = textStr.substring(REDRAW_SIGNATURE.length);
                         return originalSetText.call(this, clean);
+                    }
+
+                    if (typeof window !== 'undefined' && window.LiveTranslatorEnabled === false) {
+                        return originalSetText.call(this, textStr);
                     }
 
                     // Prefer translating after escape conversion for better context
