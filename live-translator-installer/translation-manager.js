@@ -254,7 +254,16 @@
             });
         }
 
-        return { request };
+        // 현재 화면에 보이는 텍스트용 — 큐 맨 앞에 삽입해 prefetch 요청들보다 먼저 처리
+        function requestUrgent(text) {
+            return new Promise((resolve, reject) => {
+                const wasIdle = state.queue.length === 0 && !state.running;
+                state.queue.unshift({ text: String(text), resolve, reject });
+                if (wasIdle) run();
+            });
+        }
+
+        return { request, requestUrgent };
     }
 
     function createTranslationCache(options) {
@@ -282,6 +291,7 @@
             completed: new Map(),
             ongoing: new Map(),
             requestTranslation,
+            requestTranslationUrgent,
             requestTranslationStream,
             shouldSkip,
             performTranslation,
@@ -380,6 +390,30 @@
             return trackTranslationPromise(normalized, translationPromise);
         }
 
+        // 현재 화면에 보이는 텍스트용 — batcher 큐 앞에 삽입
+        function requestTranslationUrgent(text) {
+            const normalized = normalizeCacheKey(text);
+            telemetrySafe.logTranslation('request', normalized);
+
+            if (cache.completed.has(normalized)) {
+                const existing = cache.completed.get(normalized);
+                telemetrySafe.logTranslation('cache_hit', normalized, existing);
+                return Promise.resolve(existing);
+            }
+
+            if (cache.ongoing.has(normalized)) {
+                return cache.ongoing.get(normalized);
+            }
+
+            telemetrySafe.logTranslation('cache_miss', normalized);
+            if (isCacheOnlyProvider) {
+                telemetrySafe.logTranslation('skip', normalized, 'cache miss in none mode');
+                return Promise.resolve(normalized);
+            }
+            const translationPromise = cache.performTranslationUrgent(normalized);
+            return trackTranslationPromise(normalized, translationPromise);
+        }
+
         function requestTranslationStream(text, options = {}) {
             const normalized = normalizeCacheKey(text);
             telemetrySafe.logTranslation('request', normalized);
@@ -429,6 +463,37 @@
                 const end = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
                 const timing = Math.round(end - start);
                 diag(`[Translate] #${id} OK ${timing}ms | out="${preview(result)}"`);
+                return result;
+            } catch (err) {
+                logError('[Translation Failure]', err);
+                diag('[Translate] Failed');
+                throw err;
+            }
+        }
+
+        async function performTranslationUrgent(text) {
+            const normalized = String(text);
+            if (cache.shouldSkip(normalized)) {
+                telemetrySafe.logTranslation('skip', normalized, 'trivial text (no letters/already translated)');
+                return normalized;
+            }
+
+            if (!translatorBatcher || typeof translatorBatcher.requestUrgent !== 'function') {
+                return cache.performTranslation(normalized);
+            }
+
+            try {
+                const id = (++translateSeq) & 0x7FFFFFFF;
+                const start = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+                diag(`[Translate] #${id} Urgent | in="${preview(normalized)}"`);
+                const result = await translatorBatcher.requestUrgent(normalized);
+                if (typeof result !== 'string' || !result.trim()) {
+                    const emptyError = new Error('Translator returned no usable text.');
+                    try { emptyError.code = 'EMPTY_TRANSLATION_OUTPUT'; } catch (_) {}
+                    throw emptyError;
+                }
+                const end = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+                diag(`[Translate] #${id} OK ${Math.round(end - start)}ms | out="${preview(result)}"`);
                 return result;
             } catch (err) {
                 logError('[Translation Failure]', err);
@@ -491,8 +556,10 @@
 
         cache.shouldSkip = shouldSkip;
         cache.requestTranslation = requestTranslation;
+        cache.requestTranslationUrgent = requestTranslationUrgent;
         cache.requestTranslationStream = requestTranslationStream;
         cache.performTranslation = performTranslation;
+        cache.performTranslationUrgent = performTranslationUrgent;
         cache.performTranslationStream = performTranslationStream;
 
         return cache;

@@ -1087,7 +1087,7 @@
                     onDelta: applyStreamDelta,
                     signal: streamController ? streamController.signal : undefined
                 })
-                : translationCache.requestTranslation(translationSource);
+                : translationCache.requestTranslationUrgent(translationSource);
 
             translationPromise
                 .then(translated => {
@@ -1283,7 +1283,7 @@
                         return;
                     }
 
-                    translationCache.requestTranslation(translationSource)
+                    translationCache.requestTranslationUrgent(translationSource)
                         .then(applyTranslated)
                         .catch((error) => {
                             logger.warn('[Choice] Translation error:', error);
@@ -1378,7 +1378,7 @@
                             const versionPlaceholder = placeholderInfo;
                             const originalValue = textStr;
                             originalSetter.call(this, textStr);
-                            translationCache.requestTranslation(translationSource)
+                            translationCache.requestTranslationUrgent(translationSource)
                                 .then(translated => {
                                     try {
                                         if (this._trTextVersion !== version) return; // superseded
@@ -2571,7 +2571,7 @@
 
                 entry.translationStatus = 'translating';
                 const targetInstanceId = entry.instanceId;
-                entry.translationPromise = translationCache.requestTranslation(entry.translationSource)
+                entry.translationPromise = translationCache.requestTranslationUrgent(entry.translationSource)
                     .then(translated => applyBitmapTranslation(entry, translated, 'async', targetInstanceId))
                     .catch(error => {
                         entry.translationStatus = 'error';
@@ -2954,7 +2954,7 @@
                     const version = this._trHelpVersion;
                     const self = this;
                     const res = originalSetText.call(this, textStr);
-                    translationCache.requestTranslation(translationSource)
+                    translationCache.requestTranslationUrgent(translationSource)
                         .then(translated => {
                             try {
                                 if (self._trHelpVersion !== version) return; // superseded by newer setText

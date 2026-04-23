@@ -385,7 +385,7 @@
             if (textEntry._trStale) return;
 
             textEntry.translationStatus = 'translating';
-            textEntry.translationPromise = translationCache.requestTranslation(text);
+            textEntry.translationPromise = translationCache.requestTranslationUrgent(text);
 
             textEntry.translationPromise
                 .then((translatedText) => {
