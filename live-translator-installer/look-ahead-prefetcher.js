@@ -15,9 +15,7 @@
     // 405 = scroll text line
     const TRANSLATABLE_CODES = new Set([101, 401, 102, 402, 405]);
 
-    const SCAN_DEPTH_INITIAL = 60;
-    const SCAN_DEPTH_MAX = 600;
-    const SCAN_DEPTH_STEP = 60;
+    const SCAN_DEPTH_INITIAL = 600;
     // Minimum ms between scans to avoid hammering the main thread
     const SCAN_INTERVAL_MS = 500;
 
@@ -147,12 +145,6 @@
         const scanDepthInitial = Number(prefetchSettings.scanDepth) > 0
             ? Number(prefetchSettings.scanDepth)
             : SCAN_DEPTH_INITIAL;
-        const scanDepthMax = Number(prefetchSettings.scanDepthMax) > 0
-            ? Number(prefetchSettings.scanDepthMax)
-            : SCAN_DEPTH_MAX;
-        const scanDepthStep = Number(prefetchSettings.scanDepthStep) > 0
-            ? Number(prefetchSettings.scanDepthStep)
-            : SCAN_DEPTH_STEP;
         const intervalMs = Number(prefetchSettings.intervalMs) > 0
             ? Number(prefetchSettings.intervalMs)
             : SCAN_INTERVAL_MS;
@@ -164,8 +156,8 @@
 
         let timerId = null;
         let running = false;
-        let currentScanDepth = scanDepthInitial;
-        let fullScanReached = false;
+        // 첫 tick은 index 이후 scanDepthInitial개, 이후부터는 리스트 전체 스캔
+        let firstScanDone = false;
         const queued = new Set(); // tracks texts currently being prefetched to avoid duplicates
 
         function stripText(raw) {
@@ -194,9 +186,10 @@
         function scan() {
             if (!running) return;
             try {
+                const fullScan = firstScanDone;
                 const interpreters = resolveInterpreters();
                 for (const interp of interpreters) {
-                    const cmds = collectCommandsFromInterpreter(interp, currentScanDepth, fullScanReached);
+                    const cmds = collectCommandsFromInterpreter(interp, scanDepthInitial, fullScan);
                     for (const cmd of cmds) {
                         const text = extractTextFromCommand(cmd);
                         if (text) {
@@ -207,14 +200,9 @@
                         }
                     }
                 }
-
-                // 매 tick마다 scanDepth를 step씩 늘려 최대치에 도달하면 전체 스캔으로 전환
-                if (!fullScanReached) {
-                    currentScanDepth = Math.min(currentScanDepth + scanDepthStep, scanDepthMax);
-                    if (currentScanDepth >= scanDepthMax) {
-                        fullScanReached = true;
-                        if (logger) logger.info('[LookAheadPrefetcher] Full-event scan mode activated');
-                    }
+                if (!firstScanDone) {
+                    firstScanDone = true;
+                    if (logger) logger.info('[LookAheadPrefetcher] Full-event scan mode activated');
                 }
             } catch (err) {
                 if (logger) logger.warn('[LookAheadPrefetcher] scan error:', err);
@@ -230,9 +218,8 @@
         function start() {
             if (running) return;
             running = true;
-            currentScanDepth = scanDepthInitial;
-            fullScanReached = false;
-            if (logger) logger.info(`[LookAheadPrefetcher] Started (scanDepth=${scanDepthInitial}→${scanDepthMax}, interval=${intervalMs}ms)`);
+            firstScanDone = false;
+            if (logger) logger.info(`[LookAheadPrefetcher] Started (scanDepth=${scanDepthInitial}, interval=${intervalMs}ms)`);
             timerId = setTimeout(tick, intervalMs);
         }
 
@@ -243,8 +230,7 @@
                 timerId = null;
             }
             queued.clear();
-            currentScanDepth = scanDepthInitial;
-            fullScanReached = false;
+            firstScanDone = false;
             if (logger) logger.info('[LookAheadPrefetcher] Stopped');
         }
 
