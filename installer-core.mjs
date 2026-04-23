@@ -566,7 +566,7 @@ async function loadBundledDefaultConfigs(manifest, options = {}) {
   const defaults = {};
 
   for (const [configKey, fileName] of Object.entries(CONFIG_FILE_MAP)) {
-    const response = await fetch(new URL(`${bundleDirectory}/${fileName}`, baseUrl));
+    const response = await fetch(new URL(`${bundleDirectory}/${fileName}`, baseUrl), { cache: "no-store" });
     if (!response.ok) {
       throw new Error(t("core.fetchAssetFailed", {
         path: `/${bundleDirectory}/${fileName}`,
@@ -610,7 +610,7 @@ async function loadInstalledVersionInfo(supportDirHandle, versionPath, t) {
 }
 
 async function fetchAssetBytes(url, t) {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(t("core.fetchAssetFailed", {
       path: url.pathname,
